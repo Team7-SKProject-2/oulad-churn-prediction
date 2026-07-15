@@ -1,0 +1,10 @@
+{
+  "model_name": null,
+  "model_version": null,
+  "trained_at": null,
+  "cutoff_week": null,
+  "threshold": 0.5,
+  "target": "is_withdrawn",
+  "notes": "학습 완료 후 실제 값으로 갱신"
+}
+

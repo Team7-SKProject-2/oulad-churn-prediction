@@ -1,0 +1,12 @@
+{
+  "version": "0.1.0",
+  "target": "is_withdrawn",
+  "id_columns": [
+    "code_module",
+    "code_presentation",
+    "id_student",
+    "cutoff_week"
+  ],
+  "features": []
+}
+
