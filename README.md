@@ -2,21 +2,6 @@
 
 OULAD 학습행동 데이터를 이용해 1·2·3주차의 중도이탈 위험을 비교하고, 가장 빠르게 안정적인 예측이 가능한 시점을 유지 개입 골든타임으로 선정하는 프로젝트입니다.
 
-## PyCharm 시작 방법
-
-1. PyCharm에서 이 `project` 폴더를 프로젝트로 엽니다.
-2. 프로젝트 전용 가상환경을 생성합니다.
-3. `requirements.txt`를 설치합니다.
-4. OULAD 원본 CSV를 `data/raw/`에 넣습니다.
-5. 데이터 점검부터 실행합니다.
-
-```bash
-python -m pip install -r requirements.txt
-python -m src.data --check
-python -m src.data --build-cohort
-python -m src.features --build-vle
-```
-
 Streamlit 실행:
 
 ```bash
