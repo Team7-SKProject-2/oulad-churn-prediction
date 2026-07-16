@@ -10,7 +10,7 @@ import pandas as pd
 from .data import INTERIM_DIR, KEY_COLUMNS, RAW_DIR, require_columns
 
 
-CUTOFF_DAYS = {1: 6, 2: 13, 3: 20}
+CUTOFF_DAYS = {1: 6, 2: 13, 4: 27}
 VLE_JOIN_COLUMNS = ["code_module", "code_presentation", "id_site"]
 
 
@@ -62,7 +62,7 @@ def aggregate_vle_daily(chunksize: int = 1_000_000) -> pd.DataFrame:
 
 
 def build_vle_snapshots(daily: pd.DataFrame, cohort: pd.DataFrame) -> pd.DataFrame:
-    """1·2·3주차 누적 VLE Feature를 모든 코호트 학생에 대해 생성한다."""
+    """1·2·4주차 누적 VLE Feature를 모든 코호트 학생에 대해 생성한다."""
     require_columns(daily, [*KEY_COLUMNS, "date", "activity_type", "sum_click"], "daily_vle")
     require_columns(cohort, KEY_COLUMNS, "cohort")
     base = cohort[KEY_COLUMNS].drop_duplicates()
