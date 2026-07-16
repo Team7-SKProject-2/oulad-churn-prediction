@@ -22,6 +22,9 @@ data/interim/*
 !data/interim/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
+!data/processed/model_snapshot_week_1.csv
+!data/processed/model_snapshot_week_2.csv
+!data/processed/model_snapshot_week_4.csv
 
 # Generated models
 models/*.joblib
@@ -29,4 +32,3 @@ models/*.joblib
 
 # Local logs
 *.log
-

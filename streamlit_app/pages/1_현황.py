@@ -6,23 +6,43 @@ import streamlit as st
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 
-st.title("프로젝트 현황")
+st.title("주차·과목별 이탈 현황")
 
-cohort_path = PROJECT_ROOT / "data" / "interim" / "cohort_base.csv"
-metadata_path = PROJECT_ROOT / "artifacts" / "model_metadata.json"
+weekly_path = ARTIFACTS_DIR / "weekly_dropout_summary.csv"
+module_week_path = ARTIFACTS_DIR / "module_week_dropout_summary.csv"
+metadata_path = ARTIFACTS_DIR / "model_metadata.json"
 
-if cohort_path.exists():
-    cohort = pd.read_csv(cohort_path)
-    col1, col2 = st.columns(2)
-    col1.metric("수강 사례", f"{len(cohort):,}")
-    if "is_withdrawn" in cohort.columns:
-        col2.metric("이탈 비율", f"{cohort['is_withdrawn'].mean():.1%}")
+if not weekly_path.exists() or not module_week_path.exists():
+    st.warning("요약 파일이 없습니다. `python -m src.export_eda_artifacts`를 실행하세요.")
 else:
-    st.warning("아직 cohort_base.csv가 없습니다.")
+    weekly = pd.read_csv(weekly_path)
+    module_week = pd.read_csv(module_week_path)
+    peak = weekly.loc[weekly["dropout_rate_pct"].idxmax()]
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("정상 범위 이탈", f"{int(weekly['dropout_count'].sum()):,}건")
+    col2.metric("최고 이탈률 주차", f"{int(peak['week_index'])}주차")
+    col3.metric("해당 주차 이탈률", f"{peak['dropout_rate_pct']:.2f}%")
+
+    st.subheader("전체 주차별 이탈률")
+    st.line_chart(weekly.set_index("week_index")[["dropout_rate_pct"]])
+    st.dataframe(weekly, width="stretch", hide_index=True)
+
+    st.subheader("과목 × 주차 이탈률 Heatmap")
+    heatmap = module_week.pivot(
+        index="code_module",
+        columns="week_index",
+        values="dropout_rate_pct",
+    )
+    st.dataframe(
+        heatmap.style.background_gradient(cmap="OrRd").format("{:.2f}%"),
+        width="stretch",
+    )
 
 if metadata_path.exists():
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    st.subheader("모델 메타데이터")
-    st.json(metadata)
-
+    if metadata.get("model_name"):
+        st.subheader("선택된 모델")
+        st.json(metadata)
