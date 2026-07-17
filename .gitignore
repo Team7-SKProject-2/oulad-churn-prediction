@@ -30,5 +30,9 @@ data/processed/*
 models/*.joblib
 !models/.gitkeep
 
+# 로컬 학습 데이터 및 행 단위 OOF 예측 결과(대용량)
+models/**/used_data/
+models/**/*_oof_predictions.csv
+
 # Local logs
 *.log
