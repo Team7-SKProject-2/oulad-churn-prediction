@@ -1,0 +1,2 @@
+﻿model,rows,target_count,target_rate,feature_count,categorical_feature_count,recall_at_top_20pct,pr_auc,brier_score,ece_10bin
+CatBoost (기본 Feature + VLE 누적 Feature),895005,6672,0.007454706956944375,51,8,0.6961930455635491,0.08931967118083789,0.007065570299769539,0.00019771996096585695
