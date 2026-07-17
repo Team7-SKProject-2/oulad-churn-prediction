@@ -1,0 +1,2 @@
+﻿model,rows,target_count,target_rate,feature_count,categorical_feature_count,recall_at_top_20pct,pr_auc,brier_score,ece_10bin
+"CatBoost (demo2 Feature, 4·19·25주차 다음 주 예측)",75125,588,0.007826955074875208,98,8,0.6836734693877551,0.04378262330936524,0.007615302671313502,0.00014984973688562917
