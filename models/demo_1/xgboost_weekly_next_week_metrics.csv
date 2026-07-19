@@ -1,0 +1,2 @@
+﻿model,rows,target_count,target_rate,feature_count_before_onehot,categorical_feature_count,recall_at_top_20pct,pr_auc,brier_score,ece_10bin
+XGBoost (기본 Feature + VLE 누적 Feature),895005,6672,0.007454706956944375,51,8,0.6993405275779376,0.08078822595611351,0.1486582933413128,0.2992224567094544
