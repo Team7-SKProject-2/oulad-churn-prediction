@@ -15,8 +15,8 @@ from sklearn.metrics import average_precision_score, brier_score_loss
 from sklearn.model_selection import GroupKFold
 
 
-OUTPUT_DIR = Path(__file__).resolve().parent
-DATA_PATH = OUTPUT_DIR / "used_data" / "weekly_next_week_with_vle.csv"
+OUTPUT_DIR = Path(__file__).resolve().parent / "demo_1"
+DATA_PATH = OUTPUT_DIR / "used_data" / "weekly_next_week_with_vle_enhanced.csv"
 TARGET_COL = "target_next_week_withdrawn"
 ID_COL = "id_student"
 N_SPLITS = 3
@@ -135,7 +135,7 @@ def main() -> None:
     oof = data[["code_module", "code_presentation", ID_COL, "prediction_week", TARGET_COL]].copy()
     oof["catboost_oof_probability"] = probabilities
     overall = {
-        "model": "CatBoost (기본 Feature + VLE 누적 Feature)",
+        "model": "CatBoost (확장 Feature + 세부 VLE Feature)",
         "rows": len(data),
         "target_count": int(target.sum()),
         "target_rate": float(target.mean()),
