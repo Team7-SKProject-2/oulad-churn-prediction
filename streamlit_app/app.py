@@ -1,28 +1,29 @@
-from pathlib import Path
-import sys
-
 import streamlit as st
 
+st.set_page_config(page_title="학생 이탈 예측 시스템", layout="wide")
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-st.set_page_config(page_title="OULAD 중도이탈 조기경보", page_icon="📘", layout="wide")
-
-st.title("OULAD 학습 중도이탈 조기경보")
-st.write(
-    "1·2·4주차 학습행동을 비교해 개입 골든타임을 찾고, "
-    "과목별 위험 특성에 맞는 유지 활동을 제안하는 프로젝트입니다."
-)
-
-st.info("왼쪽 메뉴에서 현황, 모델 성능, 이탈 예측 페이지를 선택하세요.")
-
-st.subheader("운영 원칙")
 st.markdown(
     """
-- Streamlit에서 모델을 다시 학습하지 않습니다.
-- `models/churn_pipeline.joblib`과 `src/predict.py`를 사용합니다.
-- 모델이 없으면 먼저 ML 학습을 완료해야 합니다.
-"""
+    <style>
+    [data-testid="stSidebar"] { background:#16224a; }
+    [data-testid="stSidebar"] * { color:#dbe1f5 !important; }
+    [data-testid="stSidebarNav"] a[aria-current="page"] { background:rgba(255,255,255,0.12); border-radius:8px; }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
+st.sidebar.markdown(
+    "<div style='font-size:14px;font-weight:700;color:white;padding:8px 4px 0;'>학생 이탈 예측 시스템</div>"
+    "<div style='font-size:11px;color:#9aa6cf;padding:0 4px 12px;'>관리자 콘솔</div>",
+    unsafe_allow_html=True,
+)
+
+# 각 메뉴에 아이콘을 명시적으로 지정 (파일명만으로는 사이드바에 아이콘이 뜨지 않는다)
+pages = [
+    st.Page("pages/0_dashboard.py", title="대시보드", icon=":material/dashboard:", default=True),
+    st.Page("pages/1_course_weekly_recommendations.py", title="과목별 행동제안", icon=":material/checklist:"),
+    st.Page("pages/2_students_recommendations.py", title="학생별 행동추천", icon=":material/person:"),
+    st.Page("pages/3_dropout_predictions.py", title="이탈 예측", icon=":material/query_stats:"),
+]
+nav = st.navigation(pages)
+nav.run()
