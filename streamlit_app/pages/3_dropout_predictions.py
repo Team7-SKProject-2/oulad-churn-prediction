@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 from lib import data as D
-from lib.theme import inject_base_css, page_header, risk_badge_html, risk_grade
+from lib.theme import inject_base_css, page_header, risk_badge_html, risk_grade, RISK_COLORS
 from lib.risk import RISK_FACTOR_CATALOG, factors_for_snapshot, actions_for
 from lib.model import predict_risk, model_ready
 from utils.styles import load_css
@@ -14,11 +14,9 @@ load_css(ROOT_DIR / "styles.css")
 st.set_page_config(page_title="이탈 예측", layout="wide")
 inject_base_css()
 
-page_header(
-    "3. 모델 이용 예측",
-    "학생 정보를 입력하면 ML 모델이 이탈 위험을 예측합니다. "
-    "(models/dropout_model.pkl 연결 전까지는 임시 규칙 기반 점수 — lib/model.py 참고)",
-)
+
+st.title("🧠 모델 기반 차주 이탈 예측")
+st.caption("학생 정보를 입력하면 ML 모델이 이탈 위험을 예측합니다. ")
 
 if not D.model_snapshots_available():
     st.error("data/interim/ 에 model_snapshot_week_*.csv 가 없습니다.")
@@ -64,53 +62,80 @@ with st.container(border=True):
     registered_after_start = c2.selectbox("등록 시점", ["개강 전 등록", "개강 후 등록"]) == "개강 후 등록"
     missed_count = c3.number_input("미제출 과제 개수(누적)", min_value=0, max_value=10, value=0)
 
-_, popcol = st.columns([4, 1])
-with popcol:
-    with st.popover("🔍 예측 결과 보기", use_container_width=True):
-        # 1) 같은 과목·운영회차·예측주차 코호트의 중앙값/최빈값으로 기본 행을 만든다
-        template = D.cohort_template(snapshots, module, presentation, week)
+# 1) 같은 과목·운영회차·예측주차 코호트의 중앙값/최빈값으로 기본 행을 만든다
+template = D.cohort_template(snapshots, module, presentation, week)
 
-        # 2) 사용자가 입력한 핵심 항목만 덮어쓴다
-        row = template.copy()
-        row["gender"] = gender
-        row["age_band"] = age_band
-        row["disability"] = disability
-        row["region"] = region
-        row["num_of_prev_attempts"] = prev_attempts
-        row["registered_after_start"] = int(registered_after_start)
-        row["current_total_clicks"] = current_clicks
-        row["current_no_activity"] = int(current_clicks == 0)
-        row["assessment_missing_due_count"] = missed_count
+# 2) 사용자가 입력한 핵심 항목만 덮어쓴다
+row = template.copy()
+row["gender"] = gender
+row["age_band"] = age_band
+row["disability"] = disability
+row["region"] = region
+row["num_of_prev_attempts"] = prev_attempts
+row["registered_after_start"] = int(registered_after_start)
+row["current_total_clicks"] = current_clicks
+row["current_no_activity"] = int(current_clicks == 0)
+row["assessment_missing_due_count"] = missed_count
 
-        # 3) 입력값에 따라 달라지는 파생 피처를 최소한으로 재계산해 내부 일관성을 맞춘다
-        prev_clicks = template.get("previous_total_clicks", current_clicks) or 1
-        row["click_change"] = current_clicks - prev_clicks
-        row["click_change_rate"] = (current_clicks - prev_clicks) / prev_clicks if prev_clicks else 0.0
+# 3) 입력값에 따라 달라지는 파생 피처를 최소한으로 재계산해 내부 일관성을 맞춘다
+prev_clicks = template.get("previous_total_clicks", current_clicks) or 1
+row["click_change"] = current_clicks - prev_clicks
+row["click_change_rate"] = (current_clicks - prev_clicks) / prev_clicks if prev_clicks else 0.0
 
-        input_df = pd.DataFrame([row])
-        score = predict_risk(input_df)[0]
-        grade = risk_grade(score)
-        factor_keys = factors_for_snapshot(row)
+input_df = pd.DataFrame([row])
+score = predict_risk(input_df)[0]
+grade = risk_grade(score)
+factor_keys = factors_for_snapshot(row)
+grade_color = RISK_COLORS[grade]["dot"]
 
-        st.markdown(f"### {score:.0f} / 100")
-        st.markdown(risk_badge_html(grade), unsafe_allow_html=True)
-        st.progress(int(score))
+# 위험 신호 칩 HTML
+if factor_keys:
+    chips_html = " ".join(
+        f'<span class="chip">{RISK_FACTOR_CATALOG[k]["label"]}</span>' for k in factor_keys
+    )
+else:
+    chips_html = '<span style="font-size:12px;color:#6a7286;">감지된 위험 신호가 없습니다.</span>'
 
-        st.markdown("**감지된 위험 신호 (원본 데이터 기반 근거)**")
-        if factor_keys:
-            st.markdown(
-                " ".join(f'<span class="chip">{RISK_FACTOR_CATALOG[k]["label"]}</span>' for k in factor_keys),
-                unsafe_allow_html=True,
-            )
-        else:
-            st.caption("감지된 위험 신호가 없습니다.")
+# 추천 행동 카드 HTML
+actions = actions_for(factor_keys)
+if actions:
+    actions_html = "".join(
+        f'<div class="action-card"><b>{a["title"]}</b><br>'
+        f'<span style="font-size:12.5px;color:#5b6478;">{a["desc"]}</span></div>'
+        for a in actions
+    )
+else:
+    actions_html = '<span style="font-size:12px;color:#6a7286;">추천 행동이 없습니다.</span>'
 
-        st.markdown("**추천 행동**")
-        actions = actions_for(factor_keys)
-        if actions:
-            for a in actions:
-                st.markdown(f'<div class="action-card"><b>{a["title"]}</b><br><span style="font-size:12.5px;color:#5b6478;">{a["desc"]}</span></div>', unsafe_allow_html=True)
-        else:
-            st.caption("추천 행동이 없습니다.")
-
-        st.caption("입력하지 않은 나머지 피처는 같은 과목·예측주차 코호트의 중앙값/최빈값으로 채워졌습니다.")
+# 화면에 항상 고정으로 떠있는 패널 — position: fixed
+st.markdown(
+    f"""
+    <div style="
+        position: fixed;
+        bottom: 10px;
+        right: 17px;
+        width: 420px;
+        max-height: 82vh;
+        overflow-y: auto;
+        background: #ffffff;
+        border: 1px solid #e3e6ee;
+        border-radius: 14px;
+        padding: 20px;
+        box-shadow: 0 12px 32px rgba(28,35,51,0.18);
+        z-index: 9999;
+    ">
+        <div style="font-size:13px;font-weight:700;color:#6a7286;margin-bottom:6px;">🔍 예측 결과</div>
+        <div style="font-size:26px;font-weight:700;color:#1c2333;margin-bottom:8px;">{score:.0f} / 100</div>
+        {risk_badge_html(grade)}
+        <div style="background:#e3e6ee;border-radius:8px;height:10px;overflow:hidden;margin:12px 0 16px;">
+            <div style="width:{score:.0f}%;background:{grade_color};height:100%;"></div>
+        </div>
+        <div style="font-size:13px;font-weight:700;color:#1c2333;margin-bottom:6px;">감지된 위험 신호 (원본 데이터 기반 근거)</div>
+        <div style="margin-bottom:14px;">{chips_html}</div>
+        <div style="font-size:13px;font-weight:700;color:#1c2333;margin-bottom:6px;">추천 행동</div>
+        {actions_html}
+        <div style="font-size:11px;color:#6a7286;margin-top:10px;">입력하지 않은 나머지 피처는 같은 과목·예측주차 코호트의 중앙값/최빈값으로 채워졌습니다.</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)

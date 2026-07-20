@@ -22,7 +22,8 @@ if not D.data_available():
 raw = D.load_raw()
 master = build_master_table(raw)
 
-page_header("1. 과목/주차별 행동제안", "과목과 주차를 선택하면 해당 시점의 위험군 학생과 공통 행동제안을 확인할 수 있습니다.")
+st.title("📋 과목/주차별 행동제안")
+st.caption("과목과 주차를 선택하면 해당 시점의 위험군 학생과 공통 행동제안을 확인할 수 있습니다.")
 
 with st.container(border=True):
 
