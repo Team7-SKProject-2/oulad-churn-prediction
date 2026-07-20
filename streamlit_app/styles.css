@@ -1,0 +1,18 @@
+[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
+    background-color: #f0f2f6;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+}
+[data-testid="stLayoutWrapper"]:not(:has(.kpi-card)) >* {
+    background-color: white;
+    border-radius: 10px;
+}
+
+[data-testid="stPopoverBody"] {
+    width: 30vw !important;
+    max-width: 30vw !important;
+}
+
+
+
