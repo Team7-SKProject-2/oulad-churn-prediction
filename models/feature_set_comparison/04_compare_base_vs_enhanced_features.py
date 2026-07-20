@@ -19,7 +19,8 @@ NOTEBOOK_DIR = Path(__file__).resolve().parent
 MODELS_DIR = NOTEBOOK_DIR.parent
 BASE_PATH = MODELS_DIR / "data" / "oulad_weekly_next_week_base.csv"
 ENHANCED_PATH = MODELS_DIR / "data" / "oulad_weekly_next_week.csv"
-RESULT_DIR = MODELS_DIR / "results" / "feature_set_comparison"
+# 비교 코드와 결과 CSV를 같은 폴더에서 관리한다.
+RESULT_DIR = NOTEBOOK_DIR
 
 TARGET_COL = "target_next_week_withdrawn"
 ID_COL = "id_student"
