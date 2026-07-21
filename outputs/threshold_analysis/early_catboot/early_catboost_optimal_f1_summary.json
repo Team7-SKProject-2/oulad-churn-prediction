@@ -1,0 +1,58 @@
+{
+  "documentation": {
+    "purpose_ko": "1~10주차 OOF 부분집단의 CatBoost 임계값 평가 결과입니다.",
+    "scope_note_ko": "신규 학생 추론이 아니라 기존 OOF 검증행의 주차 부분집단 분석입니다.",
+    "streamlit_table": "st.dataframe(evaluate_early_catboost().display_table, hide_index=True)",
+    "streamlit_roc": "report = evaluate_early_catboost(); st.pyplot(create_roc_figure(report))",
+    "prediction_rule": "pred = (positive_probability >= threshold).astype(int)",
+    "auc_note_ko": "ROC-AUC와 PR-AUC는 임계값 적용 전의 주차 부분집단 OOF 확률로 계산합니다."
+  },
+  "source": {
+    "model": "CatBoost",
+    "oof_path": "C:\\oulad-churn-prediction\\models\\demo_1\\catboost_weekly_next_week_oof_predictions.csv",
+    "week_column": "prediction_week",
+    "start_week": 1,
+    "end_week": 10,
+    "source_rows": 895005,
+    "rows": 271663,
+    "target_column": "target_next_week_withdrawn",
+    "probability_column": "catboost_oof_probability",
+    "positive_label": 1,
+    "positive_count": 3316,
+    "positive_ratio": 0.012206299716928696,
+    "output_interpretation": "CatBoost predict_proba 양성 확률이며 sigmoid를 추가 적용하지 않음"
+  },
+  "search_mode": "all_unique_early_oof_probabilities",
+  "selection_method": "1~10주차의 모든 고유 OOF 확률에서 F1-score 최대값 선택; 동점이면 0.5에 가까운 값, 이후 높은 임계값 우선",
+  "selected": {
+    "threshold": 0.1100300614138347,
+    "accuracy": 0.9838844450661297,
+    "precision": 0.2785654712260217,
+    "recall": 0.2014475271411339,
+    "specificity": 0.9935531233812936,
+    "f1_score": 0.23381169058452922,
+    "roc_auc": 0.8436386633832129,
+    "pr_auc": 0.1588896895703199,
+    "TP": 668.0,
+    "FP": 1730.0,
+    "TN": 266617.0,
+    "FN": 2648.0,
+    "predicted_positive_count": 2398.0,
+    "predicted_positive_ratio": 0.008827113003979195,
+    "youden_j": 0.19500065052242754
+  },
+  "threshold_grid": {
+    "candidate_count": 20,
+    "includes_default_0_5": true,
+    "includes_exact_selected_threshold": true
+  },
+  "files": {
+    "metrics_csv": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\early_catboot\\early_catboost_optimal_f1_metrics.csv",
+    "threshold_metrics_csv": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\early_catboot\\early_catboost_threshold_metrics.csv",
+    "summary_json": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\early_catboot\\early_catboost_optimal_f1_summary.json",
+    "metrics_table_png": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\early_catboot\\early_catboost_metrics_table.png",
+    "threshold_curve_png": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\early_catboot\\early_catboost_threshold_curve.png",
+    "roc_curve_png": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\early_catboot\\early_catboost_roc_curve.png",
+    "reproducible_python_script": "C:\\oulad-churn-prediction\\src\\early_catboost_threshold_report.py"
+  }
+}
