@@ -22,15 +22,7 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-# st.markdown("""
-# <style>
-#
-# </style>
-# """, unsafe_allow_html=True)
-# st.sidebar.markdown(
-#     "<div style='font-size:14px;font-weight:700;color:white;padding:8px 4px 0;'>학생 이탈 예측 시스템</div>",
-#     unsafe_allow_html=True,
-# )
+
 
 
 # 각 메뉴에 아이콘을 명시적으로 지정 (파일명만으로는 사이드바에 아이콘이 뜨지 않는다)

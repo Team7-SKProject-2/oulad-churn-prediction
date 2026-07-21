@@ -238,7 +238,12 @@ def student_last_seen(snapshots: pd.DataFrame) -> pd.DataFrame:
 def cohort_template(snapshots: pd.DataFrame, code_module: str, code_presentation: str, cutoff_week: int) -> pd.Series:
     """3번(이탈예측) 페이지용: 특정 과목·운영회차·cutoff_week 코호트의
     중앙값(수치형)/최빈값(범주형)으로 만든 '평균적인 학생' 템플릿 행.
-    사용자가 입력하지 않은 나머지 피처를 이걸로 채워서 모델에 넣는다."""
+    사용자가 입력하지 않은 나머지 피처를 이걸로 채워서 모델에 넣는다.
+
+    모델이 붙어 30주차까지 선택 가능해진 경우, 요청한 cutoff_week에 실제 스냅샷이
+    하나도 없을 수 있다 (우리 데이터는 1·2·4주차 체크포인트뿐이므로). 이 경우 가장 가까운
+    체크포인트 주차의 코호트로 나머지 피처 기준값을 대체하되, cutoff_week 자체는
+    사용자가 실제로 선택한 값을 그대로 써서 모델에 정확한 시점 정보가 들어가게 한다."""
     cohort = snapshots[
         (snapshots["code_module"] == code_module)
         & (snapshots["code_presentation"] == code_presentation)
@@ -246,6 +251,19 @@ def cohort_template(snapshots: pd.DataFrame, code_module: str, code_presentation
     ]
     if cohort.empty:
         cohort = snapshots[snapshots["cutoff_week"] == cutoff_week]
+    if cohort.empty:
+        available = sorted(snapshots["cutoff_week"].dropna().unique().tolist())
+        if not available:
+            raise ValueError("스냅샷 데이터가 비어 있어 코호트 템플릿을 만들 수 없습니다.")
+        nearest = min(available, key=lambda w: abs(w - cutoff_week))
+        cohort = snapshots[
+            (snapshots["code_module"] == code_module)
+            & (snapshots["code_presentation"] == code_presentation)
+            & (snapshots["cutoff_week"] == nearest)
+        ]
+        if cohort.empty:
+            cohort = snapshots[snapshots["cutoff_week"] == nearest]
+
     numeric_cols = cohort.select_dtypes(include="number").columns
     template = cohort.iloc[0].copy()
     template[numeric_cols] = cohort[numeric_cols].median(numeric_only=True)
@@ -253,4 +271,7 @@ def cohort_template(snapshots: pd.DataFrame, code_module: str, code_presentation
         mode = cohort[c].mode()
         if not mode.empty:
             template[c] = mode.iloc[0]
+
+    if "cutoff_week" in template.index:
+        template["cutoff_week"] = cutoff_week
     return template
