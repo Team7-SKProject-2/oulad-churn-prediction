@@ -59,25 +59,6 @@ project-root/
 | `3_dropout_predictions.py` | `pages/3_dropout_predictions.py` |
 | `data.py`, `theme.py`, `risk.py`, `model.py`, `sample_defaults.json`, `__init__.py` | `lib/` |
 
-### ⚠️ 누락된 파일 (코드에서 참조하지만 업로드되지 않음)
-
-1. **`utils/styles.py`** — 모든 페이지가 `from utils.styles import load_css`를 호출합니다.
-   최소한 아래 형태로라도 만들어야 앱이 실행됩니다.
-   ```python
-   # utils/styles.py
-   from pathlib import Path
-   import streamlit as st
-
-   def load_css(path: Path):
-       if Path(path).exists():
-           st.markdown(f"<style>{Path(path).read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
-   ```
-2. **`styles.css`** — 프로젝트 루트(`ROOT_DIR`)에 있어야 합니다. 없어도 `load_css`가
-   위처럼 존재 여부를 체크하게 만들면 에러 없이 넘어갑니다.
-3. **`data/interim/*.csv`** — 실제 OULAD 정제 데이터. 없으면 각 페이지가
-   `st.error()`로 안내 후 멈추도록 이미 구현되어 있습니다.
-4. **`models/artifacts/catboost.joblib`** — 선택 사항. 없으면 `lib/model.py`가
-   `placeholder_score()`(규칙 기반)로 자동 전환됩니다.
 
 ## 2. 설치 및 실행
 
