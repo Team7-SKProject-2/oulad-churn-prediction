@@ -1,0 +1,2 @@
+﻿model,rows,target_count,target_rate,sequence_length,feature_count,recall_at_top_20pct,pr_auc,brier_score,ece_10bin,precision_at_top_20pct
+TCN causal 1D-CNN recent 4-week behavior,895005,6672,0.007454706821590662,4,11,0.4934052757793765,0.02791668812018662,0.20757342266219325,0.4113535926620465,0.01839095912873745

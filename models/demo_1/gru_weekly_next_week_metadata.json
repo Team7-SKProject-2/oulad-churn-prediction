@@ -1,0 +1,37 @@
+{
+  "input_features": [
+    "current_total_clicks",
+    "current_active_days",
+    "current_unique_sites",
+    "current_activity_type_count",
+    "current_forumng_clicks",
+    "current_oucontent_clicks",
+    "current_quiz_clicks",
+    "current_resource_clicks",
+    "current_other_clicks",
+    "current_no_activity",
+    "weeks_since_last_activity"
+  ],
+  "log1p_features": [
+    "current_total_clicks",
+    "current_active_days",
+    "current_unique_sites",
+    "current_activity_type_count",
+    "current_forumng_clicks",
+    "current_oucontent_clicks",
+    "current_quiz_clicks",
+    "current_resource_clicks",
+    "current_other_clicks",
+    "weeks_since_last_activity"
+  ],
+  "sequence_length": 4,
+  "n_splits": 3,
+  "fold_assignment_sha256": "697027a8fde48b52a9b3992559b39403289d2e3fb023ed47afbf5b2c000a409a",
+  "checkpoints": [
+    "gru_weekly_next_week_fold_1.pt",
+    "gru_weekly_next_week_fold_2.pt",
+    "gru_weekly_next_week_fold_3.pt"
+  ],
+  "data_rows": 895005,
+  "target_count": 6672
+}

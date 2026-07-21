@@ -1,0 +1,17 @@
+﻿feature,audit_result,reason,decision
+imd_band_missing,drop_candidate,전체 행에서 상수,OOF ablation 통과 후 제거
+assessment_banked_due_count,drop_candidate,전체 행에서 상수,OOF ablation 통과 후 제거
+assessment_submitted_exam_count,drop_candidate,전체 행에서 상수,OOF ablation 통과 후 제거
+any_known_banked_count,drop_candidate,전체 행에서 상수,OOF ablation 통과 후 제거
+vle_cum_unique_sites,drop_candidate,57.44% 결측 및 생성 품질 이상,OOF ablation 통과 후 제거
+assessment_nonbanked_submitted_count,drop_candidate,다른 Feature와 전체 행에서 완전 중복,OOF ablation 통과 후 제거
+any_known_submission_count,drop_candidate,다른 Feature와 전체 행에서 완전 중복,OOF ablation 통과 후 제거
+any_known_scored_count,drop_candidate,다른 Feature와 전체 행에서 완전 중복,OOF ablation 통과 후 제거
+any_known_score_missing_count,drop_candidate,다른 Feature와 전체 행에서 완전 중복,OOF ablation 통과 후 제거
+any_known_mean_score,drop_candidate,다른 Feature와 전체 행에서 완전 중복,OOF ablation 통과 후 제거
+any_known_median_score,drop_candidate,다른 Feature와 전체 행에서 완전 중복,OOF ablation 통과 후 제거
+cutoff_day,drop_candidate,다른 입력에서 복원 가능하거나 트리에서 중복인 단조 변환,OOF ablation 통과 후 제거
+current_has_vle_record,drop_candidate,다른 입력에서 복원 가능하거나 트리에서 중복인 단조 변환,OOF ablation 통과 후 제거
+log1p_cum_total_clicks,drop_candidate,다른 입력에서 복원 가능하거나 트리에서 중복인 단조 변환,OOF ablation 통과 후 제거
+log1p_current_total_clicks,drop_candidate,다른 입력에서 복원 가능하거나 트리에서 중복인 단조 변환,OOF ablation 통과 후 제거
+log1p_pre_course_clicks,drop_candidate,다른 입력에서 복원 가능하거나 트리에서 중복인 단조 변환,OOF ablation 통과 후 제거
