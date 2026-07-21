@@ -30,8 +30,8 @@ project-root/
 │   ├── model.py
 │   └── sample_defaults.json
 ├── utils/
-│   └── styles.py                       # ⚠️ 업로드 목록에 없음 — 아래 "누락된 파일" 참고
-├── styles.css                          # ⚠️ 업로드 목록에 없음 — 아래 "누락된 파일" 참고
+│   └── styles.py        
+├── styles.css                    
 ├── data/
 │   └── interim/
 │       ├── student_info_processed.csv
