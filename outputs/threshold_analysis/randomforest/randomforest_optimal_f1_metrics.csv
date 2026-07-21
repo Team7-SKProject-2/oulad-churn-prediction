@@ -1,0 +1,2 @@
+﻿model,search_mode,selection_method,unique_probability_candidates,threshold,accuracy,precision,recall,specificity,f1_score,roc_auc,pr_auc,TP,FP,TN,FN,predicted_positive_count,predicted_positive_ratio,youden_j
+RandomForest,all_unique_oof_probabilities,모든 고유 OOF 확률에서 F1-score 최대값 선택,736041,0.7750081939643029,0.9889307880961559,0.15162610381219038,0.10551558752997602,0.9955658519946912,0.12443658859920459,0.8351390263894468,0.08275607017575394,704.0,3939.0,884394.0,5968.0,4643.0,0.005187680515751309,0.10108143952466708

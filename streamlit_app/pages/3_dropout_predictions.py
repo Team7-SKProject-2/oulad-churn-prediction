@@ -2,10 +2,17 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-from lib import data as D
-from lib.theme import inject_base_css, page_header, risk_badge_html, risk_grade, RISK_COLORS
+from lib.theme import inject_base_css, risk_badge_html, RISK_COLORS
 from lib.risk import RISK_FACTOR_CATALOG, factors_for_snapshot, actions_for
-from lib.model import predict_risk, model_ready
+from lib.model import (
+    cohort_profile,
+    cohort_profiles_ready,
+    decision_threshold,
+    load_cohort_profiles,
+    model_info,
+    model_ready,
+    prediction_frame,
+)
 from utils.styles import load_css
 from pathlib import Path
 
@@ -17,17 +24,26 @@ inject_base_css()
 
 
 st.title("🧠 모델 기반 차주 이탈 예측")
-st.caption("학생 정보를 입력하면 ML 모델이 이탈 위험을 예측합니다. ")
-
-if not D.model_snapshots_available():
-    st.error("data/interim/ 에 model_snapshot_week_*.csv 가 없습니다.")
-    st.stop()
-
-weeks = D.available_snapshot_weeks()
-snapshots = D.load_model_snapshots()
+st.caption("현재 주차까지의 정보를 입력하면 CatBoost가 다음 주 중도이탈 위험을 예측합니다.")
 
 if not model_ready():
-    st.caption("⚠️ 아직 학습된 모델이 연결되지 않아, 임시 규칙 기반 점수로 표시됩니다.")
+    st.error("최종 CatBoost 모델(models/artifacts/catboost.joblib)이 연결되지 않았습니다.")
+    st.stop()
+
+if not cohort_profiles_ready():
+    st.error(
+        "CatBoost 입력 프로필(models/artifacts/catboost_cohort_profiles.csv)이 없습니다. "
+        "models/11_build_streamlit_profiles.py를 먼저 실행해 주세요."
+    )
+    st.stop()
+
+profiles = load_cohort_profiles()
+info = model_info()
+threshold = decision_threshold()
+st.success(
+    f"{info['model_name']} · {info['feature_count']}개 Feature · "
+    f"위험 기준 확률 {threshold:.3f} 연결 완료"
+)
 
 st.info(
     "catboost_feature_importance_all.csv 기준 중요도 상위 피처는 직접 입력받고, "
@@ -39,9 +55,11 @@ st.info(
 with st.container(border=True):
     st.markdown("**과목 · 시점**")
     c1, c2, c3 = st.columns(3)
-    modules = sorted(snapshots["code_module"].unique().tolist())
+    modules = sorted(profiles["code_module"].unique().tolist())
     module = c1.selectbox("과목", modules)
-    presentations = sorted(snapshots.loc[snapshots["code_module"] == module, "code_presentation"].unique().tolist())
+    presentations = sorted(
+        profiles.loc[profiles["code_module"] == module, "code_presentation"].unique().tolist()
+    )
     presentation = c2.selectbox("운영 회차", presentations)
     week_options = list(range(1, 21)) if model_ready() else weeks
     week = c3.selectbox("예측 주차(cutoff_week)", week_options, index=len(week_options) - 1)
@@ -53,7 +71,7 @@ with st.container(border=True):
     st.markdown("**학생 정보**")
     c1, c2, c3 = st.columns(3)
     gender = c1.selectbox("성별", ["F", "M"], format_func=lambda g: "여" if g == "F" else "남")
-    age_options = sorted(snapshots["age_band"].dropna().unique().tolist())
+    age_options = sorted(profiles["age_band"].dropna().unique().tolist())
     age_band = c2.selectbox("연령대", age_options)
     disability = c3.selectbox("장애 여부", ["N", "Y"], format_func=lambda d: "있음" if d == "Y" else "없음")
     c4, c5, c6 = st.columns(3)
@@ -92,8 +110,8 @@ with st.container(border=True):
     # importance rank 2, 9, 16, 18, 25, 26, 28, 30을 한 번에 대표하는 값
     avg_score = c3.number_input("과제 평균 점수", min_value=0, max_value=100, value=70)
 
-# 1) 같은 과목·운영회차·예측주차 코호트의 중앙값/최빈값으로 기본 행을 만든다
-template = D.cohort_template(snapshots, module, presentation, week)
+# 1) 최종 학습 데이터와 동일한 124개 Feature 코호트 프로필을 기본 행으로 사용한다
+template = cohort_profile(profiles, module, presentation, int(week))
 
 # 2) 사용자가 입력한 핵심 항목만 덮어쓴다
 row = template.copy()
@@ -117,6 +135,34 @@ row["assessment_missing_due_count"] = missed_count
 prev_clicks = previous_clicks or 1
 row["click_change"] = current_clicks - prev_clicks
 row["click_change_rate"] = (current_clicks - prev_clicks) / prev_clicks if prev_clicks else 0.0
+row["log1p_current_total_clicks"] = np.log1p(current_clicks)
+row["current_has_vle_record"] = int(current_clicks > 0)
+
+click_delta = current_clicks - template_current_clicks
+row["vle_cum_total_clicks"] = max(float(template.get("vle_cum_total_clicks", 0)) + click_delta, 0)
+row["log1p_cum_total_clicks"] = np.log1p(row["vle_cum_total_clicks"])
+
+activity_columns = [
+    "current_forumng_clicks",
+    "current_oucontent_clicks",
+    "current_quiz_clicks",
+    "current_resource_clicks",
+    "current_other_clicks",
+]
+if template_current_clicks > 0:
+    activity_scale = current_clicks / template_current_clicks
+    for column in activity_columns:
+        row[column] = float(template.get(column, 0)) * activity_scale
+elif current_clicks == 0:
+    for column in activity_columns:
+        row[column] = 0.0
+
+due_count = float(template.get("assessment_due_count", 0) or 0)
+row["assessment_submitted_due_count"] = max(due_count - missed_count, 0)
+row["assessment_missing_due_rate"] = missed_count / due_count if due_count else 0.0
+row["assessment_submission_rate"] = (
+    row["assessment_submitted_due_count"] / due_count if due_count else 0.0
+)
 
 # importance rank 15 — log1p 변환 피처는 현재 클릭수에서 바로 계산 가능
 row["log1p_current_total_clicks"] = np.log1p(current_clicks)
@@ -191,7 +237,7 @@ st.markdown(
         z-index: 9999;
     ">
         <div style="font-size:13px;font-weight:700;color:#6a7286;margin-bottom:6px;">🔍 예측 결과</div>
-        <div style="font-size:26px;font-weight:700;color:#1c2333;margin-bottom:8px;">{score:.0f} / 100</div>
+        <div style="font-size:26px;font-weight:700;color:#1c2333;margin-bottom:8px;">{score:.2f}%</div>
         {risk_badge_html(grade)}
         <div style="background:#e3e6ee;border-radius:8px;height:10px;overflow:hidden;margin:12px 0 16px;">
             <div style="width:{score:.0f}%;background:{grade_color};height:100%;"></div>
@@ -200,7 +246,10 @@ st.markdown(
         <div style="margin-bottom:14px;">{chips_html}</div>
         <div style="font-size:13px;font-weight:700;color:#1c2333;margin-bottom:6px;">추천 행동</div>
         {actions_html}
-        <div style="font-size:11px;color:#6a7286;margin-top:10px;">입력하지 않은 나머지 피처는 같은 과목·예측주차 코호트의 중앙값/최빈값으로 채워졌습니다.</div>
+        <div style="font-size:11px;color:#6a7286;margin-top:10px;">
+            운영 위험 기준: {threshold * 100:.2f}% · CatBoost 124개 Feature<br>
+            입력하지 않은 Feature는 같은 과목·운영회차·예측주차 코호트의 중앙값/최빈값으로 채워졌습니다.
+        </div>
     </div>
     """,
     unsafe_allow_html=True,

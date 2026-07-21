@@ -1,0 +1,2 @@
+﻿model,search_mode,unique_probability_candidates,threshold,accuracy,precision,recall,specificity,f1_score,roc_auc,pr_auc,TP,FP,TN,FN,predicted_positive_count,predicted_positive_ratio,youden_j
+ElasticNet,all_unique_oof_probabilities,894989,0.0396775552118996,0.9750884073273334,0.06166535742340927,0.16471822541966427,0.9811748522232091,0.08973626194170001,0.8077306483244295,0.03458897835211187,1099.0,16723.0,871610.0,5573.0,17822.0,0.019912737917665263,0.1458930776428733
