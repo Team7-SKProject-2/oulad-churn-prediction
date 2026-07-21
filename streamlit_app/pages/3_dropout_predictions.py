@@ -43,11 +43,8 @@ with st.container(border=True):
     module = c1.selectbox("과목", modules)
     presentations = sorted(snapshots.loc[snapshots["code_module"] == module, "code_presentation"].unique().tolist())
     presentation = c2.selectbox("운영 회차", presentations)
-    week_options = list(range(1, 21)) if model_ready() else weeks
+    week_options = list(range(1, 10)) if model_ready() else weeks
     week = c3.selectbox("예측 주차(cutoff_week)", week_options, index=len(week_options) - 1)
-    if model_ready() and week not in weeks:
-        st.caption(
-            f"ℹ️ {week}주차는 실제 스냅샷이 없어, 가장 가까운 체크포인트({min(weeks, key=lambda w: abs(w - week))}주차) 학생들의 값을 기준으로 나머지 피처를 채웁니다.")
 
 with st.container(border=True):
     st.markdown("**학생 정보**")
@@ -205,3 +202,5 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+st.markdown('<div style="height:420px;"></div>', unsafe_allow_html=True)
