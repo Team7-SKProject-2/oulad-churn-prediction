@@ -23,8 +23,10 @@ MODEL_PATH = ARTIFACT_DIR / "catboost.joblib"
 TARGET_COL = "target_next_week_withdrawn"
 ID_COL = "id_student"
 RANDOM_STATE = 42
-# 팀 검증으로 확정한 운영용 이탈 위험군 분류 임계값이다.
-DECISION_THRESHOLD = 0.065
+# 1~10주차 OOF 부분집합에서 F1을 최대화한 Early 운영 임계값이다.
+DECISION_THRESHOLD = 0.1100300614138347
+SERVICE_START_WEEK = 1
+SERVICE_END_WEEK = 10
 
 
 def prepare_features(data: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
@@ -93,6 +95,10 @@ def main() -> None:
         "feature_count": features.shape[1],
         "target_rate": float(target.mean()),
         "threshold": DECISION_THRESHOLD,
+        "service_start_week": SERVICE_START_WEEK,
+        "service_end_week": SERVICE_END_WEEK,
+        "training_scope": "all available prediction weeks",
+        "service_scope": "prediction weeks 1 through 10",
         "training_parameters": model.get_params(),
         "trained_at": datetime.now().isoformat(timespec="seconds"),
     }
@@ -100,7 +106,10 @@ def main() -> None:
 
     print(f"저장 모델: {MODEL_PATH}")
     print(f"학습 행 수: {len(data):,}, Feature 수: {features.shape[1]}, 범주형 Feature 수: {len(categorical)}")
-    print(f"운영용 이탈 위험군 임계값: {DECISION_THRESHOLD:.3f}")
+    print(
+        f"Early 운영 구간: {SERVICE_START_WEEK}~{SERVICE_END_WEEK}주차, "
+        f"이탈 위험군 임계값: {DECISION_THRESHOLD:.6f}"
+    )
     print(f"파일 크기: {MODEL_PATH.stat().st_size / 1024 / 1024:.2f} MB")
 
 

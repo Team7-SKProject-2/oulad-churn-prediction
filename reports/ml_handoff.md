@@ -1,40 +1,41 @@
-# 머신러닝 인수인계
+# 모델·Streamlit 인수인계
 
-## 현재 상태
+## 최종 기준
 
-전처리와 EDA까지 완료했다. 데이터 분할, Validation, 모델 학습, 임계값 선택,
-Test 평가는 수행하지 않았다.
+- 주제: 개강 후 1~10주차의 매주 다음 주 이탈 조기예측
+- 최종 모델: CatBoost Enhanced 124 Feature
+- 운영 임계값: `0.1100300614`
+- 확률 보정: 미적용
+- GRU·TCN·108 Feature CatBoost: 추가 비교 실험
 
 ## 바로 사용할 파일
 
-| 후보 주차 | 파일 | 행 | 열 | Target 0 | Target 1 |
-|---:|---|---:|---:|---:|---:|
-| 1 | `data/processed/model_snapshot_week_1.csv` | 29,018 | 99 | 22,366 | 6,652 |
-| 2 | `data/processed/model_snapshot_week_2.csv` | 27,984 | 99 | 22,395 | 5,589 |
-| 4 | `data/processed/model_snapshot_week_4.csv` | 27,449 | 99 | 22,424 | 5,025 |
+- 모델: `models/artifacts/catboost.joblib`
+- 124개 Feature 코호트 프로필: `models/artifacts/catboost_cohort_profiles.csv`
+- Early 설정: `models/artifacts/early_service_config.json`
+- 공통 추론: `streamlit_app/lib/model.py`
+- Early 평가: `outputs/threshold_analysis/early_catboot/`
 
-세 파일의 컬럼과 순서는 동일하다. 학생·과목·개설 회차 키 중복과 결측치는
-0건이며 `target`은 0 또는 1이다.
+대용량 주차별 학습 테이블과 OOF 행 단위 예측은 Git에서 제외할 수 있으므로,
+모델을 재학습하거나 Early 결과를 재생성할 때는 별도로 전달된 데이터를
+지정해야 한다.
 
-## pull 후 확인
+## 주의사항
+
+- 모델은 전체 주차 학습 행으로 학습했고, 서비스만 1~10주차로 제한한다.
+- `target_next_week_withdrawn`, `final_result`, `date_unregistration`, 이탈 파생 컬럼을 입력 Feature로 사용하지 않는다.
+- `id_student`는 Feature가 아니며 학생 Group 분할에만 사용한다.
+- 추론 시 124개 Feature의 이름·순서·자료형을 저장 모델과 동일하게 맞춘다.
+- Early 임계값은 `early_service_config.json`을 단일 운영 기준으로 사용한다.
+- Early 성능은 OOF 부분집합 결과이며 독립 외부 Test 결과로 표현하지 않는다.
+
+## 확인 명령
 
 ```bash
 python -m pip install -r requirements.txt
-python -m src.check_preprocessing_handoff
+python -m unittest discover -s tests -v
+streamlit run streamlit_app/app.py
 ```
 
-검증 결과와 SHA-256은 `artifacts/preprocessing_manifest.json`에 저장된다.
-Manifest의 해시가 같으면 Validation 파일 삭제나 노트북 출력 삭제 여부와 관계없이
-동일한 전처리 데이터다.
-
-## ML 담당자가 지켜야 할 경계
-
-- `target`: 정답 컬럼이므로 입력 Feature에서 제외
-- `id_student`: 같은 학생이 분할 사이에 섞이지 않도록 Group 분할에만 사용
-- `final_result`, `date_unregistration`, 이탈 파생 컬럼: Snapshot에서 이미 제거됨
-- 범주형 인코딩, 결측 대체, 스케일링, Feature 선택: Train에서만 학습
-- 1·2·4주차는 동일한 학생 Group 분할을 사용
-
-전처리 단계에서 `split` 컬럼이나 Validation 결과는 생성하지 않았다. 따라서 이후
-예측값은 ML 담당자가 선택하는 분할, 난수 시드, 전처리기, 모델, 임계값에 의해
-결정되며 Validation 삭제 자체 때문에 달라지지는 않는다.
+`model_snapshot_week_1.csv`, `week_2.csv`, `week_4.csv`는 초기 시점별 전처리·EDA
+검증 산출물이며, 현재 매주 다음 주 예측 메인 테이블을 대체하지 않는다.

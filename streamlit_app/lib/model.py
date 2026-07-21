@@ -1,19 +1,10 @@
-"""이탈 예측 모델 연동 인터페이스.
+"""최종 CatBoost와 Streamlit을 연결하는 공통 추론 인터페이스.
 
-모델: CatBoost, `models/artifacts/catboost.joblib`에 joblib으로 저장된 것을 로드한다.
-모델 객체는 `.predict_proba(X)` 를 지원해야 하고, X는 model_snapshot_week_*.csv의
-컬럼 중 ID_COLUMNS를 제외한 나머지를 그대로 받는다고 가정한다 (원본 dtype 그대로 전달 —
-범주형 처리는 CatBoost가 학습 시점의 cat_features 정보로 내부에서 알아서 한다).
-models/artifacts/catboost.joblib이 없거나 catboost 패키지가 설치되어 있지 않으면
-predict_risk()는 placeholder_score()로 동작한다. 화면에는 "임시 규칙 기반 점수(모델 대기 중)"
-배지를 노출해서 실제 모델 점수와 혼동되지 않게 한다.
-
-점수 변환: 전체 이탈률이 0.63%로 워낙 낮아서, 모델이 뱉는 원본 확률(predict_proba)은
-가장 위험한 학생도 몇 %대로만 나온다. 이걸 절대적인 수식(예: power 변환)으로 0~100에
-펼치면 "위험한 학생은 높게, 안전한 학생은 낮게"를 동시에 만족시키기 어렵다.
-그래서 전체 학생(스냅샷 데이터) 대비 백분위(percentile)로 점수를 매긴다 —
-"이 학생보다 확률이 낮은 학생이 몇 %인가"를 점수로 쓴다.
+모델과 124개 Feature 순서는 ``catboost.joblib``에서 읽고, 1~10주차
+조기경보 운영 구간과 임계값은 ``early_service_config.json``에서 읽는다.
 """
+
+from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -21,225 +12,119 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import streamlit as st
-import json
 
-MODEL_PATH = Path(__file__).resolve().parent.parent.parent / "models" / "artifacts" / "catboost.joblib"
-# 스냅샷 CSV에서 식별자/타깃 컬럼 (모델 입력에서 제외)
-ID_COLUMNS = ["code_module", "code_presentation", "id_student", "cutoff_week", "target"]
 
-# weekly_next_week_with_vle_enhanced_sample.csv(모델 실제 학습 스키마 샘플) 기준으로 계산한
-# 컬럼별 평균(수치형)/최빈값(범주형)을 lib/sample_defaults.json에서 불러온다.
-SAMPLE_DEFAULTS_PATH = Path(__file__).resolve().parent / "sample_defaults.json"
-
-def feature_columns(df: pd.DataFrame) -> list[str]:
-    return [c for c in df.columns if c not in ID_COLUMNS]
-
-from .data import PROJECT_ROOT
-
-# data.py가 data/interim을 기준으로 이미 찾아둔 프로젝트 루트를 그대로 사용한다.
-# (streamlit_app 폴더 기준이 아니라 실제 저장소 루트의 models/ 폴더를 가리켜야 하므로)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MODEL_PATH = PROJECT_ROOT / "models" / "artifacts" / "catboost.joblib"
-
-# 스냅샷 CSV에서 식별자/타깃 컬럼 (모델 입력에서 제외)
-ID_COLUMNS = ["code_module", "code_presentation", "id_student", "cutoff_week", "target"]
-def _load_sample_defaults() -> dict:
-    if not SAMPLE_DEFAULTS_PATH.exists():
-        return {}
-    try:
-        with open(SAMPLE_DEFAULTS_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        st.warning(f"lib/sample_defaults.json을 읽는 중 오류가 발생해 기본값(0/unknown)으로 대체합니다: {e}")
-        return {}
-
-# weekly_next_week_with_vle_enhanced_sample.csv(모델 실제 학습 스키마 샘플) 기준으로 계산한
-# 컬럼별 평균(수치형)/최빈값(범주형)을 lib/sample_defaults.json에서 불러온다.
-# 지금 앱이 쓰는 vle_snapshot_week_*.csv엔 없는 컬럼을 모델에 넣을 때, 무작정 0/"unknown"으로
-# 채우는 대신 이 값으로 채운다.
-# ⚠️ 샘플(3,500행) 기준이라 실제 전체 데이터 통계와 다를 수 있다 — 전체 데이터를 구하면
-#    lib/sample_defaults.json 파일만 다시 계산해서 교체하면 된다 (코드 수정 불필요).
-SAMPLE_DEFAULTS_PATH = Path(__file__).resolve().parent / "sample_defaults.json"
-
-SAMPLE_DEFAULTS = _load_sample_defaults()
+PROFILE_PATH = PROJECT_ROOT / "models" / "artifacts" / "catboost_cohort_profiles.csv"
+SERVICE_CONFIG_PATH = PROJECT_ROOT / "models" / "artifacts" / "early_service_config.json"
+REQUIRED_ARTIFACT_KEYS = {
+    "model",
+    "feature_columns",
+    "categorical_features",
+    "threshold",
+}
+PROFILE_KEY_COLUMNS = ["code_module", "code_presentation", "prediction_week"]
 
 
-def _load_sample_defaults() -> dict:
-    if not SAMPLE_DEFAULTS_PATH.exists():
-        return {}
-    try:
-        with open(SAMPLE_DEFAULTS_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        st.warning(f"lib/sample_defaults.json을 읽는 중 오류가 발생해 기본값(0/unknown)으로 대체합니다: {e}")
-        return {}
-
-
-SAMPLE_DEFAULTS = _load_sample_defaults()
-
-
-def feature_columns(df: pd.DataFrame) -> list[str]:
-    return [c for c in df.columns if c not in ID_COLUMNS]
-
-
-@st.cache_resource(show_spinner="CatBoost 모델 로딩 중…")
-def load_model():
-    """학습된 모델을 로드한다. 파일이 없거나 로드에 실패하면 None (placeholder 모드로 동작).
-
-    joblib.dump()로 모델 객체 하나만 저장했다면 그대로 반환하고,
-    {"model": ..., ...} 처럼 dict로 감싸서 저장했다면 그 안에서 predict_proba를
-    가진 값을 자동으로 찾아 꺼낸다."""
+@st.cache_resource(show_spinner=False)
+def load_model_artifact() -> dict | None:
+    """모델 artifact를 읽고 추론에 필요한 메타데이터를 검증한다."""
     if not MODEL_PATH.exists():
         return None
     import joblib
-    try:
-        obj = joblib.load(MODEL_PATH)
-    except ModuleNotFoundError:
-        st.warning(
-            "models/artifacts/catboost.joblib을 찾았지만 `catboost` 패키지가 설치되어 있지 않아 "
-            "로드하지 못했습니다. `pip install catboost` 후 앱을 재시작하세요. "
-            "그 전까지는 임시 규칙 기반 점수로 표시됩니다."
-        )
-        return None
 
-    if hasattr(obj, "predict_proba"):
-        return obj
-    try:
-        obj = joblib.load(MODEL_PATH)
-    except ModuleNotFoundError:
-        st.warning(
-            "models/artifacts/catboost.joblib을 찾았지만 `catboost` 패키지가 설치되어 있지 않아 "
-            "로드하지 못했습니다. `pip install catboost` 후 앱을 재시작하세요. "
-            "그 전까지는 임시 규칙 기반 점수로 표시됩니다."
-        )
-        return None
+    artifact = joblib.load(MODEL_PATH)
+    if not isinstance(artifact, dict):
+        raise TypeError("CatBoost artifact는 모델과 메타데이터를 담은 dict여야 합니다.")
+    missing = REQUIRED_ARTIFACT_KEYS.difference(artifact)
+    if missing:
+        raise ValueError(f"CatBoost artifact 필수 항목이 없습니다: {sorted(missing)}")
+    if len(artifact["feature_columns"]) != artifact.get("feature_count", 124):
+        raise ValueError("CatBoost Feature 개수 메타데이터가 실제 순서와 다릅니다.")
+    return artifact
 
-    if isinstance(obj, dict):
-        for key in ("model", "catboost", "catboost_model", "estimator", "clf", "classifier", "pipeline"):
-            if key in obj and hasattr(obj[key], "predict_proba"):
-                return obj[key]
-        for v in obj.values():
-            if hasattr(v, "predict_proba"):
-                return v
-        st.warning(
-            "models/artifacts/catboost.joblib이 dict로 저장되어 있는데, 그 안에서 "
-            f"predict_proba를 가진 모델을 못 찾았습니다. 실제 키: {list(obj.keys())} — "
-            "이 키 이름을 알려주시면 코드에 반영해드릴게요. 그 전까지는 임시 규칙 기반 점수로 표시됩니다."
-        )
-        return None
 
-    st.warning(
-        f"models/artifacts/catboost.joblib을 로드했지만 예상한 모델 형태가 아닙니다 (타입: {type(obj)}). "
-        "임시 규칙 기반 점수로 표시됩니다."
-    )
-    return None
-    return obj["model"] if isinstance(obj, dict) else obj
+@st.cache_data(show_spinner=False)
+def load_service_config() -> dict:
+    """1~10주차 Early 서비스 설정을 읽는다."""
+    if not SERVICE_CONFIG_PATH.exists():
+        return {"start_week": 1, "end_week": 10}
+    return json.loads(SERVICE_CONFIG_PATH.read_text(encoding="utf-8"))
+
+
+def load_model():
+    """기존 화면 코드와의 호환을 위해 실제 CatBoost 모델 객체를 반환한다."""
+    artifact = load_model_artifact()
+    return None if artifact is None else artifact["model"]
 
 
 def model_ready() -> bool:
-    """실제 모델이 연결되어 있는지 여부. 페이지에서 배지 표시용으로 사용."""
-    return load_model() is not None
+    """최종 CatBoost artifact가 연결되어 있는지 반환한다."""
+    return load_model_artifact() is not None
 
 
-def placeholder_score(df: pd.DataFrame) -> np.ndarray:
-    """TODO(임시): 실제 모델 도착 전까지 쓰는 규칙 기반 근사 점수(0~100).
-    스냅샷의 몇 가지 대표 피처만 사용한다. 모델이 붙으면 predict_risk()가
-    자동으로 이 함수 대신 실제 모델을 호출하므로, 이 함수 자체는 수정할
-    필요 없이 그대로 둬도 된다."""
-    def col(name, default=0.0):
-        return pd.to_numeric(df[name], errors="coerce").fillna(default) if name in df.columns else pd.Series(default, index=df.index)
-
-    click_drop = np.clip(-col("click_change_rate"), 0, 1)  # 클릭 급감 정도
-    no_activity = col("current_no_activity")
-    missed_rate = np.clip(col("assessment_missing_due_rate"), 0, 1)
-    prev_attempts = np.minimum(col("num_of_prev_attempts"), 3)
-    late_reg = col("registered_after_start")
-    inactivity_weeks = np.clip(col("weeks_since_last_activity"), 0, 4)
-
-    score = (
-        15
-        + click_drop * 20
-        + no_activity * 15
-        + missed_rate * 25
-        + prev_attempts * 6
-        + late_reg * 8
-        + inactivity_weeks * 4
-    )
-    return np.clip(score, 0, 100).to_numpy()
+def service_week_range() -> tuple[int, int]:
+    config = load_service_config()
+    return int(config.get("start_week", 1)), int(config.get("end_week", 10))
 
 
-def _prepare_X(df: pd.DataFrame, model):
-    """predict_risk()와 기준 확률 분포 계산에서 공통으로 쓰는 입력 전처리.
-    (컬럼 순서 맞추기, cutoff_week→prediction_week/cutoff_day 매핑, 없는 컬럼 기본값 채우기,
-    범주형 컬럼 문자열 변환)"""
-    X = df[feature_columns(df)]
-
-    feature_names = getattr(model, "feature_names_", None)
-    cat_idx = model.get_cat_feature_indices() if hasattr(model, "get_cat_feature_indices") else []
-    cat_cols = set(feature_names[i] for i in cat_idx if feature_names and i < len(feature_names))
-
-    missing = []
-    if feature_names:
-        missing = [c for c in feature_names if c not in X.columns]
-        X = X.reindex(columns=feature_names)
-
-        # ID_COLUMNS로 X에서 제외됐지만, 모델은 실제 피처로 쓰는 컬럼들은
-        # 원본 df 값으로 명시적으로 다시 채워준다.
-        if "cutoff_week" in df.columns:
-            if "prediction_week" in X.columns:
-                X["prediction_week"] = df["cutoff_week"].values
-                missing = [c for c in missing if c != "prediction_week"]
-            if "cutoff_day" in X.columns:
-                X["cutoff_day"] = (df["cutoff_week"].values - 1) * 7
-                missing = [c for c in missing if c != "cutoff_day"]
-        for id_col in ("code_module", "code_presentation"):
-            if id_col in df.columns and id_col in X.columns:
-                X[id_col] = df[id_col].values
-                missing = [c for c in missing if c != id_col]
-
-        # 그래도 남는, 지금 화면 데이터에 아예 없는 컬럼은 무작정 0/"unknown"이 아니라
-        # SAMPLE_DEFAULTS(학습 스키마 샘플 기준 평균/최빈값)로 채운다.
-        for col in missing:
-            if col in SAMPLE_DEFAULTS:
-                X[col] = SAMPLE_DEFAULTS[col]
-            else:
-                X[col] = "unknown" if col in cat_cols else 0
-
-    for col in cat_cols:
-        if col in X.columns:
-            X[col] = X[col].apply(lambda v: str(int(v)) if isinstance(v, float) and v.is_integer() else str(v))
-
-    return X, missing
+def decision_threshold() -> float:
+    """Early 운영용 다음 주 이탈 위험 분류 임계값을 반환한다."""
+    config = load_service_config()
+    if "decision_threshold" in config:
+        return float(config["decision_threshold"])
+    return float(_require_artifact()["threshold"])
 
 
-@st.cache_data(show_spinner="기준 확률 분포 계산 중…")
-def _reference_probabilities() -> np.ndarray:
-    """전체 스냅샷 데이터에 대해 모델 확률을 한 번 계산해서 캐싱해둔 기준 분포.
-    새 예측값을 이 분포에서 백분위로 환산해 점수를 매기는 데 쓴다."""
-    model = load_model()
-    if model is None:
-        return np.array([])
-    from .data import load_model_snapshots
-    snaps = load_model_snapshots()
-    if snaps.empty:
-        return np.array([])
-    X, _ = _prepare_X(snaps, model)
-    return model.predict_proba(X)[:, 1]
+def model_info() -> dict:
+    """화면 표시용 모델·서비스 정보를 반환한다."""
+    artifact = _require_artifact()
+    start_week, end_week = service_week_range()
+    return {
+        "model_name": artifact.get("model_name", "CatBoost"),
+        "feature_count": len(artifact["feature_columns"]),
+        "training_rows": artifact.get("training_rows"),
+        "target_rate": artifact.get("target_rate"),
+        "threshold": decision_threshold(),
+        "service_start_week": start_week,
+        "service_end_week": end_week,
+        "trained_at": artifact.get("trained_at"),
+    }
+
+
+def required_feature_columns() -> list[str]:
+    """학습 시 저장한 124개 Feature 순서를 반환한다."""
+    return list(_require_artifact()["feature_columns"])
+
+
+def _require_artifact() -> dict:
+    artifact = load_model_artifact()
+    if artifact is None:
+        raise FileNotFoundError(f"최종 CatBoost 모델이 없습니다: {MODEL_PATH}")
+    return artifact
+
+
+def feature_coverage(df: pd.DataFrame) -> dict:
+    """입력 데이터가 최종 모델 Feature를 얼마나 포함하는지 진단한다."""
+    required = required_feature_columns()
+    missing = [column for column in required if column not in df.columns]
+    return {
+        "required_count": len(required),
+        "available_count": len(required) - len(missing),
+        "missing_columns": missing,
+    }
+
 
 def prepare_model_input(df: pd.DataFrame) -> pd.DataFrame:
-    """입력을 학습 당시 Feature 순서와 자료형으로 맞춘다.
-
-    누락 Feature를 임의의 0으로 채우면 조용히 잘못된 예측이 만들어질 수 있으므로
-    반드시 124개 Feature가 모두 존재할 때만 추론한다.
-    """
+    """입력을 학습 당시 Feature 순서와 자료형으로 맞춘다."""
     artifact = _require_artifact()
     feature_columns = list(artifact["feature_columns"])
     missing = [column for column in feature_columns if column not in df.columns]
     if missing:
         preview = ", ".join(missing[:10])
         suffix = " ..." if len(missing) > 10 else ""
-        raise ValueError(
-            f"CatBoost 입력 Feature {len(missing)}개가 없습니다: {preview}{suffix}"
-        )
+        raise ValueError(f"CatBoost 입력 Feature {len(missing)}개가 없습니다: {preview}{suffix}")
 
     features = df.loc[:, feature_columns].copy()
     categorical = list(artifact["categorical_features"])
@@ -262,99 +147,89 @@ def predict_probabilities(df: pd.DataFrame) -> np.ndarray:
         raise ValueError("CatBoost가 NaN 또는 무한대 확률을 반환했습니다.")
     return probabilities
 
-def _prepare_X(df: pd.DataFrame, model):
-    """predict_risk()와 기준 확률 분포 계산에서 공통으로 쓰는 입력 전처리."""
-    X = df[feature_columns(df)]
-
-    feature_names = getattr(model, "feature_names_", None)
-    cat_idx = model.get_cat_feature_indices() if hasattr(model, "get_cat_feature_indices") else []
-    cat_cols = set(feature_names[i] for i in cat_idx if feature_names and i < len(feature_names))
-
-    missing = []
-    missing = []
-    if feature_names:
-        missing = [c for c in feature_names if c not in X.columns]
-        X = X.reindex(columns=feature_names)
-
-        # ID_COLUMNS로 X에서 제외됐지만, 모델은 실제 피처로 쓰는 컬럼들은
-        # 원본 df 값으로 명시적으로 다시 채워준다.
-        if "cutoff_week" in df.columns:
-            if "prediction_week" in X.columns:
-                X["prediction_week"] = df["cutoff_week"].values
-                missing = [c for c in missing if c != "prediction_week"]
-            if "cutoff_day" in X.columns:
-                X["cutoff_day"] = (df["cutoff_week"].values - 1) * 7
-                missing = [c for c in missing if c != "cutoff_day"]
-        for id_col in ("code_module", "code_presentation"):
-            if id_col in df.columns and id_col in X.columns:
-                X[id_col] = df[id_col].values
-                missing = [c for c in missing if c != id_col]
-
-        # 그래도 남는, 지금 화면 데이터에 아예 없는 컬럼은 무작정 0/"unknown"이 아니라
-        # SAMPLE_DEFAULTS(학습 스키마 샘플 기준 평균/최빈값)로 채운다.
-        for col in missing:
-            if col in SAMPLE_DEFAULTS:
-                X[col] = SAMPLE_DEFAULTS[col]
-            else:
-                X[col] = "unknown" if col in cat_cols else 0
-
-    for col in cat_cols:
-        if col in X.columns:
-            X[col] = X[col].apply(lambda v: str(int(v)) if isinstance(v, float) and v.is_integer() else str(v))
-
-    return X, missing
-
-
-@st.cache_data(show_spinner="기준 확률 분포 계산 중…")
-def _reference_probabilities(code_module: str = None, code_presentation: str = None, cutoff_week: int = None) -> np.ndarray:
-    """전체가 아니라 같은 과목·운영회차·cutoff_week 학생들끼리만 비교하기 위한 기준 분포.
-    (전체를 섞으면 아직 신호가 거의 없는 1주차 학생들이 대부분을 차지해서,
-    확률이 조금만 올라가도 백분위가 과도하게 튀는 문제가 있었다.)"""
-    model = load_model()
-    if model is None:
-        return np.array([])
-    from .data import load_model_snapshots
-    snaps = load_model_snapshots()
-    if snaps.empty:
-        return np.array([])
-
-    filtered = snaps
-    if code_module is not None:
-        filtered = filtered[filtered["code_module"] == code_module]
-    if code_presentation is not None:
-        filtered = filtered[filtered["code_presentation"] == code_presentation]
-    if cutoff_week is not None:
-        filtered = filtered[filtered["cutoff_week"] == cutoff_week]
-    if filtered.empty:
-        filtered = snaps  # 해당 조합 데이터가 없으면 전체로 대체
-
-    X, _ = _prepare_X(filtered, model)
-    return model.predict_proba(X)[:, 1]
-
 
 def predict_risk(df: pd.DataFrame) -> np.ndarray:
-    """0~100 위험 점수를 반환한다.
-    실제 모델이 있으면 같은 과목·주차 학생 대비 백분위로 점수를 매기고, 없으면 placeholder_score()."""
-    if df.empty:
-        return np.array([])
-    model = load_model()
-    if model is None:
-        return placeholder_score(df)
+    """기존 화면 호환용으로 다음 주 이탈확률을 0~100 점수로 반환한다."""
+    return predict_probabilities(df) * 100.0
 
-    X, missing = _prepare_X(df, model)
-    if missing:
-        st.caption(f"⚠️ 모델이 기대하는 피처 {len(missing)}개는 현재 데이터에 없어 기본값으로 채워졌습니다 (예측 정확도에 영향 가능).")
 
-    proba = model.predict_proba(X)[:, 1]
+def predict_is_at_risk(df: pd.DataFrame) -> np.ndarray:
+    """Early 운영 임계값 기준 위험 학생 여부를 반환한다."""
+    return predict_probabilities(df) >= decision_threshold()
 
-    module = df["code_module"].iloc[0] if "code_module" in df.columns else None
-    presentation = df["code_presentation"].iloc[0] if "code_presentation" in df.columns else None
-    week = df["cutoff_week"].iloc[0] if "cutoff_week" in df.columns else None
-    ref = _reference_probabilities(module, presentation, week)
 
-    if ref.size > 0:
-        score = np.array([(ref < p).mean() * 100 for p in proba])
-    else:
-        score = np.power(proba, 0.15) * 100
+def prediction_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """화면에서 바로 사용할 확률·위험 여부 결과를 반환한다."""
+    probabilities = predict_probabilities(df)
+    threshold = decision_threshold()
+    return pd.DataFrame(
+        {
+            "next_week_withdrawal_probability": probabilities,
+            "risk_score_pct": probabilities * 100.0,
+            "is_at_risk": probabilities >= threshold,
+            "decision_threshold": threshold,
+        },
+        index=df.index,
+    )
 
-    return np.clip(score, 0, 100)
+
+@st.cache_data(show_spinner=False)
+def load_cohort_profiles() -> pd.DataFrame:
+    """과목·운영회차·주차별 124개 Feature 기준 프로필을 읽는다."""
+    if not PROFILE_PATH.exists():
+        return pd.DataFrame()
+    profiles = pd.read_csv(PROFILE_PATH, low_memory=False)
+    coverage = feature_coverage(profiles)
+    if coverage["missing_columns"]:
+        raise ValueError(
+            "CatBoost 코호트 프로필의 Feature가 불완전합니다: "
+            f"{coverage['missing_columns'][:10]}"
+        )
+    if profiles.duplicated(PROFILE_KEY_COLUMNS).any():
+        raise ValueError("CatBoost 코호트 프로필의 복합키가 중복됩니다.")
+    return profiles
+
+
+def cohort_profiles_ready() -> bool:
+    return PROFILE_PATH.exists() and not load_cohort_profiles().empty
+
+
+def cohort_profile(
+    profiles: pd.DataFrame,
+    code_module: str,
+    code_presentation: str,
+    prediction_week: int,
+) -> pd.Series:
+    """선택한 과목·운영회차·예측주차의 모델 입력 기준 행을 반환한다."""
+    selected = profiles.loc[
+        profiles["code_module"].eq(code_module)
+        & profiles["code_presentation"].eq(code_presentation)
+        & profiles["prediction_week"].eq(prediction_week)
+    ]
+    if len(selected) != 1:
+        raise ValueError("선택한 과목·운영회차·예측주차의 CatBoost 프로필을 하나로 찾지 못했습니다.")
+    return selected.iloc[0].copy()
+
+
+__all__ = [
+    "MODEL_PATH",
+    "PROFILE_PATH",
+    "SERVICE_CONFIG_PATH",
+    "cohort_profile",
+    "cohort_profiles_ready",
+    "decision_threshold",
+    "feature_coverage",
+    "load_cohort_profiles",
+    "load_model",
+    "load_model_artifact",
+    "load_service_config",
+    "model_info",
+    "model_ready",
+    "predict_is_at_risk",
+    "predict_probabilities",
+    "predict_risk",
+    "prediction_frame",
+    "prepare_model_input",
+    "required_feature_columns",
+    "service_week_range",
+]

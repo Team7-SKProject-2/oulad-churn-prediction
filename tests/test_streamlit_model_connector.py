@@ -17,6 +17,7 @@ from streamlit_app.lib.model import (
     predict_probabilities,
     prepare_model_input,
     required_feature_columns,
+    service_week_range,
 )
 
 
@@ -29,7 +30,8 @@ class StreamlitModelConnectorTest(unittest.TestCase):
         self.assertTrue(model_ready())
         self.assertTrue(cohort_profiles_ready())
         self.assertEqual(model_info()["feature_count"], 124)
-        self.assertAlmostEqual(decision_threshold(), 0.065)
+        self.assertAlmostEqual(decision_threshold(), 0.1100300614138347)
+        self.assertEqual(service_week_range(), (1, 10))
 
     def test_profiles_follow_saved_feature_order(self):
         expected = required_feature_columns()
@@ -45,7 +47,7 @@ class StreamlitModelConnectorTest(unittest.TestCase):
         self.assertEqual(len(probabilities), len(sample))
         self.assertTrue(np.isfinite(probabilities).all())
         self.assertTrue(((probabilities >= 0) & (probabilities <= 1)).all())
-        np.testing.assert_array_equal(labels, probabilities >= 0.065)
+        np.testing.assert_array_equal(labels, probabilities >= decision_threshold())
 
     def test_missing_feature_is_rejected_instead_of_silently_filled(self):
         incomplete = self.profiles.head(1).drop(columns=[required_feature_columns()[-1]])
