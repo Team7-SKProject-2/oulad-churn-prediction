@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.set_page_config(page_title="학생 이탈 예측 시스템", layout="wide")
+st.set_page_config(page_title="학생 초기 이탈 예측 시스템", layout="wide")
 
 st.markdown(
     """
@@ -10,10 +10,10 @@ st.markdown(
     [data-testid="stSidebarNav"] a[aria-current="page"] { background:rgba(255,255,255,0.12); border-radius:8px; }
     
     [data-testid="stSidebarNav"]::before {
-    content: "🎓 학생 이탈 예측 시스템";
+    content: "🎓 학생 초기 이탈 예측 시스템";
     display: block;
     color: white;
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 700;
     padding: 8px 12px 12px 12px;
 }

@@ -146,9 +146,7 @@ def main() -> None:
 
     # 5. 모든 Fold의 OOF 확률로 최종 평가지표를 계산하고 재현 가능한 결과 파일을 저장한다.
     oof = data[["code_module", "code_presentation", ID_COL, "prediction_week", TARGET_COL]].copy()
-    # scale_pos_weight를 적용한 XGBoost의 OOF 양성 확률입니다.
-    # 임계값 분석 코드와 같은 열 이름을 사용해 재학습 결과를 바로 연결합니다.
-    oof["xgboost_scaled_oof_probability"] = probabilities
+    oof["xgboost_oof_probability"] = probabilities
     overall = {
         "model": "XGBoost (확장 Feature + 세부 VLE Feature)",
         "rows": len(data),
