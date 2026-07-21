@@ -1,0 +1,2 @@
+﻿model,rows,target_count,target_rate,feature_count,dropped_feature_count,recall_at_top_20pct,pr_auc,brier_score,ece_10bin
+CatBoost reduced candidate,895005,6672,0.007454706956944375,108,16,0.7123800959232613,0.09350213706742246,0.007050278665944018,0.00021265739802100493

@@ -59,16 +59,16 @@ st.caption("OULAD 데이터 한눈에 보기 — 병합 데이터 EDA · VLE EDA
 total_enrollments = len(student_info)
 result_counts = student_info["final_result"].value_counts(normalize=True)
 withdrawn_rate = result_counts.get("Withdrawn", 0)
-churn_rate = withdrawn_rate + result_counts.get("Fail", 0)
+churn_rate = withdrawn_rate  # 이탈률 = Withdrawn만 (Fail 제외)
 high_risk_count = latest.loc[latest["risk_grade"] == "high", "id_student"].nunique()
 avg_clicks = weekly["total_clicks"].mean()
 
 k1, k2, k3, k4, k5 = st.columns(5)
 for col, label, value, sub, sub_color in [
     (k1, "전체 수강 등록 수", f"{total_enrollments:,}", f"{student_info['code_module'].nunique()}개 과목 운영 중", MUTED),
-    (k2, "Withdrawn 비율", f"{withdrawn_rate*100:.1f}%", "병합 EDA #1 — 중도 자퇴", MUTED),
-    (k3, "전체 이탈률 (Withdrawn+Fail)", f"{churn_rate*100:.1f}%",
-     f"Pass {result_counts.get('Pass',0)*100:.1f}% · Distinction {result_counts.get('Distinction',0)*100:.1f}%", MUTED),
+    (k2, "Fail 비율", f"{result_counts.get('Fail',0)*100:.1f}%", "낙제 (이탈률에서 제외)", MUTED),
+    (k3, "이탈률 (Withdrawn)", f"{churn_rate*100:.1f}%",
+     f"Pass {result_counts.get('Pass',0)*100:.1f}% · Distinction {result_counts.get('Distinction',0)*100:.1f}%", RISK_COLORS["high"]["dot"]),
     (k4, "고위험 학생 수(최신 주차 기준)", f"{high_risk_count:,}", "즉시 조치 필요", RISK_COLORS["high"]["dot"]),
     (k5, "평균 주간 참여 클릭 수", f"{avg_clicks:.0f}", "전체 과목·주차 평균", MUTED),
 ]:
@@ -99,10 +99,10 @@ with c1:
 
 with c2:
     with st.container(border=True):
-        # st.markdown("**과목별 이탈률 비교** — 병합 EDA #3")
+        st.markdown("**과목별 이탈률(Withdrawn) 비교** — 병합 EDA #3")
         by_module = (
             student_info.groupby("code_module")["final_result"]
-            .apply(lambda s: (s.isin(["Withdrawn", "Fail"])).mean())
+            .apply(lambda s: (s == "Withdrawn").mean())
             .rename("churn_rate").reset_index().sort_values("churn_rate", ascending=True)
         )
         by_module["risk_grade"] = by_module["churn_rate"].apply(
@@ -165,58 +165,10 @@ with st.container(border=True):
             fig_u = style_bar(fig_u)
             st.plotly_chart(fig_u, use_container_width=True)
             st.caption("이탈이 몰리는 구간이 여기서 확인되면 '골든타임' 후보 시점으로 기록하고, "
-                       "아래 VLE 활동 감소 구간(11-12주차, 25-26주차 등)과 겹치는지 함께 살펴보시면 좋습니다.")
+                       "아래 VLE 활동 감소 구간(11~12주차, 25~26주차 등)과 겹치는지 함께 살펴보시면 좋습니다.")
 
 st.write("")
 
-# ───────────────────────── 학생 특성별 Withdrawn 비율 ─────────────────────────
-with st.container(border=True):
-    st.markdown("**학생 특성별 Withdrawn 비율** · 병합 EDA #6")
-
-    def churn_bar(col_name, label, code_map=None, exclude=("?",)):
-        d = student_info[~student_info[col_name].astype(str).isin(exclude)].copy()
-        if code_map:
-            d[col_name] = d[col_name].map(lambda v: code_map.get(v, v))
-        g = (
-            d.groupby(col_name)["final_result"].apply(lambda s: (s == "Withdrawn").mean())
-            .rename("withdrawn_rate").reset_index().sort_values("withdrawn_rate", ascending=True)
-        )
-        fig = px.bar(g, x="withdrawn_rate", y=col_name, orientation="h", color=col_name,
-                     color_discrete_sequence=PALETTE,
-                     text=g["withdrawn_rate"].map(lambda v: f"{v*100:.0f}%"))
-        fig.update_traces(width=BAR_WIDTH)
-        fig.update_layout(margin=dict(t=10, b=10, l=10, r=35), height=200, xaxis_tickformat=".0%",
-                           xaxis_title=None, yaxis_title=None, showlegend=False)
-        fig = style_bar(fig)
-        return fig, g
-
-    dims = [
-        (first_existing(student_info, "gender"), "성별", None),
-        (first_existing(student_info, "age_band_cd", "age_band"), "연령대", {"Y": "0-35세", "M": "35-55세", "S": "55세 이상"}),
-        (first_existing(student_info, "disability"), "장애 여부", {"N": "없음", "Y": "있음"}),
-        (first_existing(student_info, "imd_band_cd", "imd_band"), "IMD(사회경제) 구간", None),
-        (first_existing(student_info, "highest_education_cd", "highest_education"), "최종 학력", None),
-    ]
-    available = [d for d in dims if d[0] is not None]
-    missing = [d for d in dims if d[0] is None]
-
-    if available:
-        row1 = st.columns(min(3, len(available)))
-        row2_dims = available[3:]
-        for col, (colname, label, cmap) in zip(row1, available[:3]):
-            fig, g = churn_bar(colname, label, cmap)
-            col.markdown(f"<div style='font-size:13px;font-weight:600;color:#1c2333;margin-bottom:4px;'>{label}</div>", unsafe_allow_html=True)
-            col.plotly_chart(fig, use_container_width=True)
-        if row2_dims:
-            row2 = st.columns(len(row2_dims))
-            for col, (colname, label, cmap) in zip(row2, row2_dims):
-                fig, g = churn_bar(colname, label, cmap)
-                col.markdown(f"<div style='font-size:13px;font-weight:600;color:#1c2333;margin-bottom:4px;'>{label}</div>", unsafe_allow_html=True)
-                col.plotly_chart(fig, use_container_width=True)
-    if missing:
-        st.caption("⚠️ 다음 항목은 student_info에 해당 컬럼이 없어 생략됨: " + ", ".join(lbl for _, lbl, _ in missing))
-
-st.write("")
 
 # ───────────────────────── 과목별 주차 활동 학생 수 추이 ─────────────────────────
 with st.container(border=True):
@@ -234,7 +186,7 @@ with st.container(border=True):
     st.plotly_chart(fig_active, use_container_width=True)
     st.caption(
         "전반적으로 주차가 진행될수록 활동 학생 수는 감소하지만, 과목별 편차가 커서 전체 평균만으로 특정 주차를 "
-        "'이탈 골든타임'으로 단정하면 안 됩니다. 점선으로 표시한 11-12·25-26·34주차 부근의 감소는 과제 일정이나 "
+        "'이탈 골든타임'으로 단정하면 안 됩니다. 점선으로 표시한 11~12·25~26·34주차 부근의 감소는 과제 일정이나 "
         "일부 강좌의 종료 시점 등 운영 구조의 영향일 수 있어, 위 이탈 시점 분포와 교차 확인이 필요합니다."
     )
 
@@ -335,6 +287,57 @@ with st.container(border=True):
     st.caption("지각 제출 비율이 Withdrawn/Fail 그룹에서 뚜렷이 높게 나오면, 지각 제출이 이탈의 선행 신호일 가능성을 뒷받침합니다.")
 
 st.write("")
+
+
+# ───────────────────────── 학생 특성별 Withdrawn 비율 ─────────────────────────
+with st.container(border=True):
+    st.markdown("**학생 특성별 Withdrawn 비율** · 병합 EDA #6")
+
+    def churn_bar(col_name, label, code_map=None, exclude=("?",)):
+        d = student_info[~student_info[col_name].astype(str).isin(exclude)].copy()
+        if code_map:
+            d[col_name] = d[col_name].map(lambda v: code_map.get(v, v))
+        g = (
+            d.groupby(col_name)["final_result"].apply(lambda s: (s == "Withdrawn").mean())
+            .rename("withdrawn_rate").reset_index().sort_values("withdrawn_rate", ascending=True)
+        )
+        fig = px.bar(g, x="withdrawn_rate", y=col_name, orientation="h", color=col_name,
+                     color_discrete_sequence=PALETTE,
+                     text=g["withdrawn_rate"].map(lambda v: f"{v*100:.0f}%"))
+        fig.update_traces(width=BAR_WIDTH)
+        fig.update_layout(margin=dict(t=10, b=10, l=10, r=35), height=200, xaxis_tickformat=".0%",
+                           xaxis_title=None, yaxis_title=None, showlegend=False)
+        fig = style_bar(fig)
+        return fig, g
+
+    dims = [
+        (first_existing(student_info, "gender"), "성별", None),
+        (first_existing(student_info, "age_band_cd", "age_band"), "연령대", {"Y": "0-35세", "M": "35-55세", "S": "55세 이상"}),
+        (first_existing(student_info, "disability"), "장애 여부", {"N": "없음", "Y": "있음"}),
+        (first_existing(student_info, "imd_band_cd", "imd_band"), "IMD(사회경제) 구간", None),
+        (first_existing(student_info, "highest_education_cd", "highest_education"), "최종 학력", None),
+    ]
+    available = [d for d in dims if d[0] is not None]
+    missing = [d for d in dims if d[0] is None]
+
+    if available:
+        row1 = st.columns(min(3, len(available)))
+        row2_dims = available[3:]
+        for col, (colname, label, cmap) in zip(row1, available[:3]):
+            fig, g = churn_bar(colname, label, cmap)
+            col.markdown(f"<div style='font-size:13px;font-weight:600;color:#1c2333;margin-bottom:4px;'>{label}</div>", unsafe_allow_html=True)
+            col.plotly_chart(fig, use_container_width=True)
+        if row2_dims:
+            row2 = st.columns(len(row2_dims))
+            for col, (colname, label, cmap) in zip(row2, row2_dims):
+                fig, g = churn_bar(colname, label, cmap)
+                col.markdown(f"<div style='font-size:13px;font-weight:600;color:#1c2333;margin-bottom:4px;'>{label}</div>", unsafe_allow_html=True)
+                col.plotly_chart(fig, use_container_width=True)
+    if missing:
+        st.caption("⚠️ 다음 항목은 student_info에 해당 컬럼이 없어 생략됨: " + ", ".join(lbl for _, lbl, _ in missing))
+
+st.write("")
+
 
 # ───────────────────────── 상관관계 ─────────────────────────
 with st.container(border=True):

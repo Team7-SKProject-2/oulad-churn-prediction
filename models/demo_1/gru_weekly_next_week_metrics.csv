@@ -1,0 +1,2 @@
+﻿model,rows,target_count,target_rate,sequence_length,feature_count,recall_at_top_20pct,pr_auc,brier_score,ece_10bin,precision_at_top_20pct
+GRU recent 4-week behavior,895005,6672,0.007454706821590662,4,11,0.49535371702637887,0.02714481537554029,0.21072389565601854,0.4214687996761128,0.01846358400232401
