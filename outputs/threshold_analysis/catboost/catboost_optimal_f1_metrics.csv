@@ -1,2 +1,0 @@
-﻿model,search_mode,unique_probability_candidates,threshold,accuracy,precision,recall,specificity,f1_score,roc_auc,pr_auc,TP,FP,TN,FN,predicted_positive_count,predicted_positive_ratio,youden_j
-CatBoost,all_unique_oof_probabilities,887919,0.0665373634061381,0.9882760431505969,0.1662882096069869,0.14268585131894485,0.994627014869424,0.15358554488989273,0.8439528729654308,0.09477537081883369,952.0,4773.0,883560.0,5720.0,5725.0,0.006396612309428439,0.1373128661883687

@@ -20,6 +20,15 @@ data/raw/*
 !data/raw/.gitkeep
 data/interim/*
 !data/interim/.gitkeep
+!data/interim/student_info_processed.csv
+!data/interim/student_registration_processed.csv
+!data/interim/vle_metadata_clean.csv
+!data/interim/vle_weekly_features.csv
+!data/interim/vle_pre_course_features.csv
+!data/interim/courses_processed.csv
+!data/interim/assessments_processed.csv
+!data/interim/student_assessment_processed.csv
+!data/interim/vle_snapshot_week_*.csv
 data/processed/*
 !data/processed/.gitkeep
 !data/processed/model_snapshot_week_1.csv
@@ -36,3 +45,6 @@ models/**/*_oof_predictions.csv
 
 # Local logs
 *.log
+
+# Reproducible analysis outputs
+outputs/

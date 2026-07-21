@@ -1,0 +1,9 @@
+{
+  "service_name": "OULAD 1~10주차 다음 주 이탈 조기경보",
+  "start_week": 1,
+  "end_week": 10,
+  "decision_threshold": 0.1100300614138347,
+  "threshold_basis": "1~10주차 학생 단위 OOF 부분집합에서 F1 최대",
+  "probability_calibration": "none",
+  "model_training_scope": "전체 주차 학습, 1~10주차 운영·평가"
+}

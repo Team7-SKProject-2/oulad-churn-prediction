@@ -1,42 +1,35 @@
 # 검증 계획
 
-이 문서는 머신러닝 담당자의 이후 작업 기준이다. 현재 전처리·EDA 단계에서는
-데이터 분할, Validation, 모델 학습, Test 평가를 실행하지 않았다.
+## 학생 단위 OOF
 
-## 데이터 분할
+- `id_student`를 Group으로 사용한 3-Fold OOF 검증을 적용한다.
+- 동일 학생의 모든 과목·운영 회차·예측 주차는 하나의 Fold에만 배정한다.
+- 각 행의 OOF 확률은 해당 학생을 학습하지 않은 모델이 생성한다.
 
-- Train 60~70%, Validation 15~20%, Test 15~20%를 기본 범위로 한다.
-- `id_student` 기준 Group 분할을 사용한다.
-- 동일 학생의 다른 과목·회차와 1·2·4주차 스냅샷은 같은 분할에 둔다.
-- 난수 시드는 프로젝트에서 하나로 고정하고 기록한다.
+## 시점 누수 방지
 
-## 전처리 누수 방지
+- `final_result`, `date_unregistration`, `withdraw_week` 등 정답·이탈 파생 정보를 제외한다.
+- 예측 주차 종료 후에 발생한 VLE 활동·평가 제출·점수를 제외한다.
+- 결측치 대체, 인코딩, 스케일링, 샘플링, Feature Selection은 각 학습 Fold 안에서만 학습한다.
 
-다음 항목은 Train에서만 학습하고 Validation·Test에는 변환만 적용한다.
+## 모델 비교
 
-- 결측치 대체값
-- 범주형 인코딩
-- 스케일링
-- 클래스 불균형 처리
-- Feature Selection
+- Dummy, ElasticNet, Random Forest, XGBoost, CatBoost를 학생 단위 OOF로 비교한다.
+- CatBoost 124 Feature를 최종 서비스 모델로 사용한다.
+- CatBoost 108 Feature와 GRU·TCN은 추가 비교 실험으로 기록한다.
+- 불균형 처리·규제 실험은 최종 모델을 대체하지 않고 보조 실험으로 보고한다.
 
-`final_result`, `date_unregistration`과 예측 시점 이후에 발생한 정보는 입력 Feature에서 제외한다.
+## Early 운영 평가
 
-## 주차 선택
-
-1·2·4주차 각각 동일한 분할과 평가 방법을 사용한다. Validation에서 Recall을 우선 확인하고, 성능이 비슷하면 더 빠른 주차를 선택한다.
-
-## 모델 및 임계값 선택
-
-- Dummy 모델을 기준선으로 둔다.
-- Logistic Regression, Random Forest, Boosting 모델을 비교한다.
-- 모델과 threshold는 Validation에서 결정한다.
-- 선택이 끝난 뒤 Test를 한 번만 평가한다.
+- 전체 주차 OOF 예측 중 `prediction_week` 1~10을 Early 운영 구간으로 평가한다.
+- 임계값 `0.1100300614`는 Early OOF 부분집합의 F1을 최대화한 값이다.
+- 해당 결과는 OOF 운영 분석으로 표기하며, 독립 외부 Test 성능으로 표현하지 않는다.
+- 전체 주차와 Early 구간의 양성 비율이 다르므로 지표를 단순 동일 모집단 향상으로 해석하지 않는다.
 
 ## 저장 항목
 
-- 최종 전처리기와 모델이 결합된 Pipeline
-- Feature 이름과 순서
-- 분류 threshold
-- 학습 데이터·코드 버전
-- 모델별 평가 지표
+- 최종 모델 artifact
+- 124개 Feature 이름·순서와 범주형 Feature 목록
+- Early 운영 구간·분류 임계값
+- 학습 데이터·코드 버전과 난수 시드
+- Fold별·전체·Early 평가 지표
