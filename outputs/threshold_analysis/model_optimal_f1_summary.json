@@ -1,0 +1,153 @@
+{
+  "documentation": {
+    "purpose_ko": "각 모델이 OOF 검증 데이터에서 낼 수 있는 F1-score 최대 성능을 비교합니다.",
+    "prediction_rule": "pred = (positive_probability >= threshold).astype(int)",
+    "exact_search_ko": "각 모델의 모든 고유 OOF 양성 확률을 후보 임계값으로 검색했습니다. 따라서 PNG의 간격 그리드보다 정확한 최적 임계값입니다.",
+    "tie_rule_ko": "F1-score 동점이면 0.5에 가까운 임계값을 우선하고, 그래도 같으면 더 높은 임계값을 선택합니다.",
+    "notes_ko": [
+      "임계값은 OOF 검증 예측으로 선택했으며 테스트 데이터로 선택하지 않았습니다.",
+      "ROC-AUC와 PR-AUC는 이진 예측이 아니라 원래 OOF 확률로 계산합니다.",
+      "모델별 최적 임계값 비교는 각 모델의 최대 운영 성능을 비교하지만 양성 예측량은 서로 다를 수 있습니다.",
+      "XGBoost weighted는 scale_pos_weight를 사용한 클래스 가중 모델이며 Platt Scaling 모델이 아닙니다."
+    ]
+  },
+  "evaluation": {
+    "rows": 895005,
+    "positive_count": 6672,
+    "positive_ratio": 0.007454706956944375,
+    "target_column": "target_next_week_withdrawn",
+    "key_columns": [
+      "code_module",
+      "code_presentation",
+      "id_student",
+      "prediction_week"
+    ],
+    "source_models": [
+      {
+        "model": "CatBoost",
+        "oof_path": "C:\\oulad-churn-prediction\\models\\demo_1\\catboost_weekly_next_week_oof_predictions.csv",
+        "probability_column": "catboost_oof_probability",
+        "rows": 895005
+      },
+      {
+        "model": "XGBoost weighted",
+        "oof_path": "C:\\oulad-churn-prediction\\models\\demo_1\\xgboost_weekly_next_week_oof_predictions.csv",
+        "probability_column": "xgboost_scaled_oof_probability",
+        "rows": 895005
+      },
+      {
+        "model": "ElasticNet",
+        "oof_path": "C:\\oulad-churn-prediction\\models\\demo_1\\elasticnet_logistic_weekly_next_week_oof_predictions.csv",
+        "probability_column": "elasticnet_logistic_oof_probability",
+        "rows": 895005
+      }
+    ],
+    "plot_grid": {
+      "minimum": 0.005,
+      "maximum": 0.995,
+      "step": 0.005,
+      "includes_0_5": true
+    }
+  },
+  "recommended": {
+    "criterion": "maximum OOF F1-score",
+    "model": "CatBoost",
+    "threshold": 0.0665373634061381,
+    "f1_score": 0.15358554488989273
+  },
+  "ranking": [
+    {
+      "model": "CatBoost",
+      "search_mode": "all_unique_oof_probabilities",
+      "unique_probability_candidates": 887919,
+      "threshold": 0.0665373634061381,
+      "accuracy": 0.9882760431505969,
+      "precision": 0.1662882096069869,
+      "recall": 0.14268585131894485,
+      "specificity": 0.994627014869424,
+      "f1_score": 0.15358554488989273,
+      "roc_auc": 0.8439528729654308,
+      "pr_auc": 0.09477537081883369,
+      "TP": 952.0,
+      "FP": 4773.0,
+      "TN": 883560.0,
+      "FN": 5720.0,
+      "predicted_positive_count": 5725.0,
+      "predicted_positive_ratio": 0.006396612309428439,
+      "youden_j": 0.1373128661883687
+    },
+    {
+      "model": "XGBoost weighted",
+      "search_mode": "all_unique_oof_probabilities",
+      "unique_probability_candidates": 833802,
+      "threshold": 0.8727346062660217,
+      "accuracy": 0.9893732437248954,
+      "precision": 0.17494847721547974,
+      "recall": 0.1145083932853717,
+      "specificity": 0.9959440885343672,
+      "f1_score": 0.13841833499411177,
+      "roc_auc": 0.8438828681643706,
+      "pr_auc": 0.0751959398409417,
+      "TP": 764.0,
+      "FP": 3603.0,
+      "TN": 884730.0,
+      "FN": 5908.0,
+      "predicted_positive_count": 4367.0,
+      "predicted_positive_ratio": 0.0048793023502662,
+      "youden_j": 0.11045248181973899
+    },
+    {
+      "model": "ElasticNet",
+      "search_mode": "all_unique_oof_probabilities",
+      "unique_probability_candidates": 894989,
+      "threshold": 0.0396775552118996,
+      "accuracy": 0.9750884073273334,
+      "precision": 0.06166535742340927,
+      "recall": 0.16471822541966427,
+      "specificity": 0.9811748522232091,
+      "f1_score": 0.08973626194170001,
+      "roc_auc": 0.8077306483244295,
+      "pr_auc": 0.03458897835211187,
+      "TP": 1099.0,
+      "FP": 16723.0,
+      "TN": 871610.0,
+      "FN": 5573.0,
+      "predicted_positive_count": 17822.0,
+      "predicted_positive_ratio": 0.019912737917665263,
+      "youden_j": 0.1458930776428733
+    }
+  ],
+  "files": {
+    "optimal_metrics_csv": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\model_optimal_f1_metrics.csv",
+    "threshold_grid_csv": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\model_threshold_grid_metrics.csv",
+    "summary_json": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\model_optimal_f1_summary.json",
+    "comparison_png": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\model_optimal_f1_comparison.png",
+    "reproducible_python_script": "C:\\oulad-churn-prediction\\src\\compare_model_optimal_thresholds.py",
+    "per_model": {
+      "CatBoost": {
+        "metrics_csv": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\catboost\\catboost_optimal_f1_metrics.csv",
+        "threshold_metrics_csv": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\catboost\\catboost_threshold_metrics.csv",
+        "metrics_table_png": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\catboost\\catboost_metrics_table.png",
+        "threshold_curve_png": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\catboost\\catboost_threshold_curve.png",
+        "roc_curve_png": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\catboost\\catboost_roc_curve.png",
+        "summary_json": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\catboost\\catboost_optimal_f1_summary.json"
+      },
+      "XGBoost weighted": {
+        "metrics_csv": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\xgboost\\xgboost_optimal_f1_metrics.csv",
+        "threshold_metrics_csv": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\xgboost\\xgboost_threshold_metrics.csv",
+        "metrics_table_png": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\xgboost\\xgboost_metrics_table.png",
+        "threshold_curve_png": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\xgboost\\xgboost_threshold_curve.png",
+        "roc_curve_png": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\xgboost\\xgboost_roc_curve.png",
+        "summary_json": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\xgboost\\xgboost_optimal_f1_summary.json"
+      },
+      "ElasticNet": {
+        "metrics_csv": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\elasticnet\\elasticnet_optimal_f1_metrics.csv",
+        "threshold_metrics_csv": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\elasticnet\\elasticnet_threshold_metrics.csv",
+        "metrics_table_png": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\elasticnet\\elasticnet_metrics_table.png",
+        "threshold_curve_png": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\elasticnet\\elasticnet_threshold_curve.png",
+        "roc_curve_png": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\elasticnet\\elasticnet_roc_curve.png",
+        "summary_json": "C:\\oulad-churn-prediction\\outputs\\threshold_analysis\\elasticnet\\elasticnet_optimal_f1_summary.json"
+      }
+    }
+  }
+}
