@@ -4,8 +4,7 @@ import plotly.express as px
 
 from lib import data as D
 from lib.theme import inject_base_css, page_header, risk_badge_html, RISK_COLORS, risk_grade
-from lib.risk import RISK_FACTOR_CATALOG, factors_for_snapshot, actions_for
-from lib.model import predict_risk, model_ready
+from lib.risk import RISK_FACTOR_CATALOG, factors_for_snapshot, score_snapshot_row, actions_for
 from utils.styles import load_css
 from pathlib import Path
 
@@ -21,14 +20,8 @@ if not D.model_snapshots_available():
 
 weeks = D.available_snapshot_weeks()
 snapshots = D.load_model_snapshots()
-
-page_header(
-    "2. ML모델 기반 차주이탈 예측 (학생별 행동추천)",
-    "학생과 예측 주차를 선택하면 수강 과목 정보 · 개인정보 · 과목별 위험도/참여도를 확인할 수 있습니다.",
-)
-
-if not model_ready():
-    st.caption("⚠️ 아직 학습된 모델이 연결되지 않아, 임시 규칙 기반 점수로 표시됩니다 (models/dropout_model.pkl 도착 시 자동 전환).")
+st.title("👨‍🎓 학생별 차주이탈 분석")
+st.caption("학생과 예측 주차를 선택하면 수강 과목 정보 · 개인정보 · 과목별 위험도/참여도를 확인할 수 있습니다.")
 
 with st.container(border=True):
     all_students = sorted(snapshots["id_student"].unique().tolist())
@@ -97,7 +90,7 @@ for col, s, lbl in zip(cols, enroll_states, module_labels):
     if s["status"] == "churned":
         badge = '<span class="risk-badge" style="background:#fbe4e4;color:#b23a3a;">이탈 확정</span>'
     else:
-        score = predict_risk(pd.DataFrame([s["row"]]))[0]
+        score = score_snapshot_row(s["row"])
         badge = risk_badge_html(risk_grade(score))
     col.markdown(
         f'<div class="section-card" style="text-align:center;">'
@@ -125,7 +118,7 @@ with st.container(border=True):
 with st.container(border=True):
 
     trend = active["trend"]
-    score_now = predict_risk(pd.DataFrame([active["row"]]))[0]
+    score_now = score_snapshot_row(active["row"])
     grade_now = risk_grade(score_now)
     fig = px.line(trend, x="cutoff_week", y="cum_total_clicks", markers=True)
     fig.update_traces(line_color=RISK_COLORS[grade_now]["dot"])
@@ -139,7 +132,7 @@ c1, c2 = st.columns(2)
 factor_keys = factors_for_snapshot(active["row"])
 with c1:
     with st.container(border=True,key="sep_card_danger"):
-        st.markdown("**위험 요인 (모델 점수의 근거 — 원본 데이터 기반)**")
+        st.markdown("**위험 요인 (원본 데이터 기반 근거)**")
         if factor_keys:
             for k in factor_keys:
                 f = RISK_FACTOR_CATALOG[k]
