@@ -52,7 +52,8 @@ weekly = raw["weekly"]
 assessments = raw["assessments"]
 student_assessment = raw["student_assessment"]
 
-page_header("대시보드", "OULAD 데이터 한눈에 보기 — 병합 데이터 EDA · VLE EDA 중간 결론 기반")
+st.title("📊 대시보드")
+st.caption("OULAD 데이터 한눈에 보기 — 병합 데이터 EDA · VLE EDA 중간 결론 기반")
 
 # ───────────────────────── KPI ─────────────────────────
 total_enrollments = len(student_info)
