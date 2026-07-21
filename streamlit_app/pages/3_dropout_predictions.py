@@ -2,17 +2,10 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-from lib.theme import inject_base_css, risk_badge_html, RISK_COLORS
+from lib import data as D
+from lib.theme import inject_base_css, page_header, risk_badge_html, risk_grade, RISK_COLORS
 from lib.risk import RISK_FACTOR_CATALOG, factors_for_snapshot, actions_for
-from lib.model import (
-    cohort_profile,
-    cohort_profiles_ready,
-    decision_threshold,
-    load_cohort_profiles,
-    model_ready,
-    predict_probabilities,
-    service_week_range,
-)
+from lib.model import predict_risk, model_ready
 from utils.styles import load_css
 from pathlib import Path
 
@@ -24,58 +17,48 @@ inject_base_css()
 
 
 st.title("🧠 모델 기반 차주 이탈 예측")
-st.caption("개강 후 1~10주차에 현재 정보를 입력하면 CatBoost가 다음 주 이탈 확률을 예측합니다.")
+st.caption("학생 정보를 입력하면 ML 모델이 이탈 위험을 예측합니다. ")
+
+if not D.model_snapshots_available():
+    st.error("data/interim/ 에 model_snapshot_week_*.csv 가 없습니다.")
+    st.stop()
+
+weeks = D.available_snapshot_weeks()
+snapshots = D.load_model_snapshots()
 
 if not model_ready():
-    st.error("models/artifacts/catboost.joblib이 없거나 정상적으로 로드되지 않습니다.")
-    st.stop()
-
-if not cohort_profiles_ready():
-    st.error("models/artifacts/catboost_cohort_profiles.csv가 없거나 비어 있습니다.")
-    st.stop()
-
-profiles = load_cohort_profiles()
-start_week, end_week = service_week_range()
-profiles = profiles.loc[profiles["prediction_week"].between(start_week, end_week)].copy()
+    st.caption("⚠️ 아직 학습된 모델이 연결되지 않아, 임시 규칙 기반 점수로 표시됩니다.")
 
 st.info(
     "catboost_feature_importance_all.csv 기준 중요도 상위 피처는 직접 입력받고, "
     "나머지는 선택한 과목·예측주차 학생들의 중앙값/최빈값으로 자동 채웁니다. "
-    f"운영 범위는 {start_week}~{end_week}주차입니다.",
+    "정확한 예측이 필요하면 2번 페이지에서 실제 학생을 조회하세요.",
     icon="ℹ️",
 )
 
 with st.container(border=True):
     st.markdown("**과목 · 시점**")
     c1, c2, c3 = st.columns(3)
-    modules = sorted(profiles["code_module"].unique().tolist())
+    modules = sorted(snapshots["code_module"].unique().tolist())
     module = c1.selectbox("과목", modules)
-    presentations = sorted(
-        profiles.loc[profiles["code_module"].eq(module), "code_presentation"].unique().tolist()
-    )
+    presentations = sorted(snapshots.loc[snapshots["code_module"] == module, "code_presentation"].unique().tolist())
     presentation = c2.selectbox("운영 회차", presentations)
-    week_options = sorted(
-        profiles.loc[
-            profiles["code_module"].eq(module)
-            & profiles["code_presentation"].eq(presentation),
-            "prediction_week",
-        ].astype(int).unique().tolist()
-    )
-    week = c3.selectbox("예측 주차", week_options)
+    week_options = list(range(1, 10)) if model_ready() else weeks
+    week = c3.selectbox("예측 주차(cutoff_week)", week_options, index=len(week_options) - 1)
 
 with st.container(border=True):
     st.markdown("**학생 정보**")
     c1, c2, c3 = st.columns(3)
     gender = c1.selectbox("성별", ["F", "M"], format_func=lambda g: "여" if g == "F" else "남")
-    age_options = sorted(profiles["age_band"].dropna().unique().tolist())
+    age_options = sorted(snapshots["age_band"].dropna().unique().tolist())
     age_band = c2.selectbox("연령대", age_options)
     disability = c3.selectbox("장애 여부", ["N", "Y"], format_func=lambda d: "있음" if d == "Y" else "없음")
     c4, c5, c6 = st.columns(3)
-    region_options = sorted(profiles["region"].dropna().unique().tolist())
+    region_options = sorted(snapshots["region"].dropna().unique().tolist())
     region = c4.selectbox("거주 지역", region_options)
     prev_attempts = c5.number_input("이전 수강 시도 횟수", min_value=0, max_value=6, value=0)
     # importance rank 23
-    edu_options = sorted(profiles["highest_education"].dropna().unique().tolist())
+    edu_options = sorted(snapshots["highest_education"].dropna().unique().tolist())
     highest_education = c6.selectbox("최종 학력", edu_options)
 
 with st.container(border=True):
@@ -106,8 +89,8 @@ with st.container(border=True):
     # importance rank 2, 9, 16, 18, 25, 26, 28, 30을 한 번에 대표하는 값
     avg_score = c3.number_input("과제 평균 점수", min_value=0, max_value=100, value=70)
 
-# 1) 저장 모델과 동일한 124개 Feature 코호트 프로필로 기본 행을 만든다
-template = cohort_profile(profiles, module, presentation, week)
+# 1) 같은 과목·운영회차·예측주차 코호트의 중앙값/최빈값으로 기본 행을 만든다
+template = D.cohort_template(snapshots, module, presentation, week)
 
 # 2) 사용자가 입력한 핵심 항목만 덮어쓴다
 row = template.copy()
@@ -163,14 +146,10 @@ scored_weight_sum_template = template.get("scored_weight_sum", 0) or 0
 row["weighted_score_sum"] = (avg_score / 100) * scored_weight_sum_template
 
 input_df = pd.DataFrame([row])
-probability = float(predict_probabilities(input_df)[0])
-threshold = decision_threshold()
-score = probability * 100.0
-threshold_pct = threshold * 100.0
-grade = "high" if probability >= threshold else "low"
+score = float(predict_risk(input_df)[0])  # predict_risk()가 이미 0~100으로 보정해서 반환한다 (lib/model.py 참고)
+grade = risk_grade(score)
 factor_keys = factors_for_snapshot(row)
 grade_color = RISK_COLORS[grade]["dot"]
-bar_width = min((probability / threshold) * 100.0, 100.0) if threshold > 0 else 0.0
 
 # 위험 신호 칩 HTML
 if factor_keys:
@@ -209,19 +188,19 @@ st.markdown(
         z-index: 9999;
     ">
         <div style="font-size:13px;font-weight:700;color:#6a7286;margin-bottom:6px;">🔍 예측 결과</div>
-        <div style="font-size:26px;font-weight:700;color:#1c2333;margin-bottom:4px;">다음 주 이탈 확률 {score:.1f}%</div>
-        <div style="font-size:12px;color:#6a7286;margin-bottom:8px;">운영 판정 기준 {threshold_pct:.1f}%</div>
+        <div style="font-size:26px;font-weight:700;color:#1c2333;margin-bottom:8px;">{score:.0f} / 100</div>
         {risk_badge_html(grade)}
         <div style="background:#e3e6ee;border-radius:8px;height:10px;overflow:hidden;margin:12px 0 16px;">
-            <div style="width:{bar_width:.0f}%;background:{grade_color};height:100%;"></div>
+            <div style="width:{score:.0f}%;background:{grade_color};height:100%;"></div>
         </div>
         <div style="font-size:13px;font-weight:700;color:#1c2333;margin-bottom:6px;">감지된 위험 신호 (원본 데이터 기반 근거)</div>
         <div style="margin-bottom:14px;">{chips_html}</div>
         <div style="font-size:13px;font-weight:700;color:#1c2333;margin-bottom:6px;">추천 행동</div>
         {actions_html}
-        <div style="font-size:11px;color:#6a7286;margin-top:10px;">입력하지 않은 나머지 Feature는 같은 과목·운영회차·예측주차의 124개 Feature 프로필로 채워졌습니다.</div>
+        <div style="font-size:11px;color:#6a7286;margin-top:10px;">입력하지 않은 나머지 피처는 같은 과목·예측주차 코호트의 중앙값/최빈값으로 채워졌습니다.</div>
     </div>
     """,
     unsafe_allow_html=True,
 )
+
 st.markdown('<div style="height:420px;"></div>', unsafe_allow_html=True)
