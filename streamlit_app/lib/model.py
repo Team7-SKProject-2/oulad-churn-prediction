@@ -1,83 +1,220 @@
-"""이탈 예측 모델 연동 인터페이스.
+"""최종 CatBoost와 Streamlit을 연결하는 공통 추론 인터페이스.
 
-TODO(팀원 모델 전달 시):
-- 학습된 모델(전처리 포함 sklearn Pipeline 권장)을 `models/dropout_model.pkl`에
-  joblib.dump()로 저장해서 넣어주면 끝. 페이지 코드는 전혀 수정할 필요 없음.
-- 모델 객체는 `.predict_proba(X)` 를 지원해야 하고, X는 model_snapshot_week_*.csv의
-  컬럼 중 ID_COLUMNS를 제외한 나머지를 그대로 받는다고 가정한다
-  (원본 dtype 그대로 전달 — 범주형 인코딩은 모델 파이프라인 내부에서 처리).
-- 만약 전처리를 앱 쪽에서 별도로 해줘야 하는 모델이라면(예: 이미 원-핫 인코딩된
-  피처를 기대하는 raw estimator), FEATURE_COLUMNS 정의와 predict_risk() 내부의
-  `X = df[feature_columns(df)]` 부분을 함께 조정해야 한다. 이 경우 먼저 상의.
-
-지금은 models/dropout_model.pkl이 없으므로 predict_risk()는 항상 placeholder_score()로
-동작한다. 화면에는 "임시 규칙 기반 점수(모델 대기 중)"라는 배지를 반드시 노출해서
-실제 모델 점수와 혼동되지 않게 한다.
+화면 코드는 이 모듈의 ``predict_probabilities`` 또는 ``prediction_frame``만
+호출하면 된다. 모델 객체, 124개 Feature 순서, 범주형 Feature, 운영 임계값은
+``models/artifacts/catboost.joblib`` 한 곳에서 읽는다.
 """
+
+from __future__ import annotations
+
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import streamlit as st
 
-MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "dropout_model.pkl"
 
-# 스냅샷 CSV에서 식별자/타깃 컬럼 (모델 입력에서 제외)
-ID_COLUMNS = ["code_module", "code_presentation", "id_student", "cutoff_week", "target"]
-
-
-def feature_columns(df: pd.DataFrame) -> list[str]:
-    return [c for c in df.columns if c not in ID_COLUMNS]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+MODEL_PATH = PROJECT_ROOT / "models" / "artifacts" / "catboost.joblib"
+PROFILE_PATH = PROJECT_ROOT / "models" / "artifacts" / "catboost_cohort_profiles.csv"
+REQUIRED_ARTIFACT_KEYS = {
+    "model",
+    "feature_columns",
+    "categorical_features",
+    "threshold",
+}
+PROFILE_KEY_COLUMNS = ["code_module", "code_presentation", "prediction_week"]
 
 
 @st.cache_resource(show_spinner=False)
-def load_model():
-    """학습된 모델을 로드한다. 파일이 없으면 None (placeholder 모드로 동작)."""
+def load_model_artifact() -> dict | None:
+    """모델 artifact를 읽고 추론에 필요한 메타데이터를 검증한다."""
     if not MODEL_PATH.exists():
         return None
     import joblib
-    return joblib.load(MODEL_PATH)
+
+    artifact = joblib.load(MODEL_PATH)
+    if not isinstance(artifact, dict):
+        raise TypeError("CatBoost artifact는 모델과 메타데이터를 담은 dict여야 합니다.")
+    missing = REQUIRED_ARTIFACT_KEYS.difference(artifact)
+    if missing:
+        raise ValueError(f"CatBoost artifact 필수 항목이 없습니다: {sorted(missing)}")
+    if len(artifact["feature_columns"]) != artifact.get("feature_count", 124):
+        raise ValueError("CatBoost Feature 개수 메타데이터가 실제 순서와 다릅니다.")
+    return artifact
+
+
+def load_model():
+    """기존 화면 코드와의 호환을 위해 실제 CatBoost 모델 객체를 반환한다."""
+    artifact = load_model_artifact()
+    return None if artifact is None else artifact["model"]
 
 
 def model_ready() -> bool:
-    """실제 모델이 연결되어 있는지 여부. 페이지에서 배지 표시용으로 사용."""
-    return load_model() is not None
+    """최종 CatBoost artifact가 연결되어 있는지 반환한다."""
+    return load_model_artifact() is not None
 
 
-def placeholder_score(df: pd.DataFrame) -> np.ndarray:
-    """TODO(임시): 실제 모델 도착 전까지 쓰는 규칙 기반 근사 점수(0~100).
-    스냅샷의 몇 가지 대표 피처만 사용한다. 모델이 붙으면 predict_risk()가
-    자동으로 이 함수 대신 실제 모델을 호출하므로, 이 함수 자체는 수정할
-    필요 없이 그대로 둬도 된다."""
-    def col(name, default=0.0):
-        return pd.to_numeric(df[name], errors="coerce").fillna(default) if name in df.columns else pd.Series(default, index=df.index)
+def model_info() -> dict:
+    """화면 표시용 모델 정보만 반환한다."""
+    artifact = _require_artifact()
+    return {
+        "model_name": artifact.get("model_name", "CatBoost"),
+        "feature_count": len(artifact["feature_columns"]),
+        "training_rows": artifact.get("training_rows"),
+        "target_rate": artifact.get("target_rate"),
+        "threshold": float(artifact["threshold"]),
+        "trained_at": artifact.get("trained_at"),
+    }
 
-    click_drop = np.clip(-col("click_change_rate"), 0, 1)  # 클릭 급감 정도
-    no_activity = col("current_no_activity")
-    missed_rate = np.clip(col("assessment_missing_due_rate"), 0, 1)
-    prev_attempts = np.minimum(col("num_of_prev_attempts"), 3)
-    late_reg = col("registered_after_start")
-    inactivity_weeks = np.clip(col("weeks_since_last_activity"), 0, 4)
 
-    score = (
-        15
-        + click_drop * 20
-        + no_activity * 15
-        + missed_rate * 25
-        + prev_attempts * 6
-        + late_reg * 8
-        + inactivity_weeks * 4
-    )
-    return np.clip(score, 0, 100).to_numpy()
+def decision_threshold() -> float:
+    """운영용 다음 주 이탈 위험 분류 임계값을 반환한다."""
+    return float(_require_artifact()["threshold"])
+
+
+def required_feature_columns() -> list[str]:
+    """학습 시 저장한 124개 Feature 순서를 반환한다."""
+    return list(_require_artifact()["feature_columns"])
+
+
+def _require_artifact() -> dict:
+    artifact = load_model_artifact()
+    if artifact is None:
+        raise FileNotFoundError(f"최종 CatBoost 모델이 없습니다: {MODEL_PATH}")
+    return artifact
+
+
+def feature_coverage(df: pd.DataFrame) -> dict:
+    """입력 데이터가 최종 모델 Feature를 얼마나 포함하는지 진단한다."""
+    required = required_feature_columns()
+    missing = [column for column in required if column not in df.columns]
+    return {
+        "required_count": len(required),
+        "available_count": len(required) - len(missing),
+        "missing_columns": missing,
+    }
+
+
+def prepare_model_input(df: pd.DataFrame) -> pd.DataFrame:
+    """입력을 학습 당시 Feature 순서와 자료형으로 맞춘다.
+
+    누락 Feature를 임의의 0으로 채우면 조용히 잘못된 예측이 만들어질 수 있으므로
+    반드시 124개 Feature가 모두 존재할 때만 추론한다.
+    """
+    artifact = _require_artifact()
+    feature_columns = list(artifact["feature_columns"])
+    missing = [column for column in feature_columns if column not in df.columns]
+    if missing:
+        preview = ", ".join(missing[:10])
+        suffix = " ..." if len(missing) > 10 else ""
+        raise ValueError(
+            f"CatBoost 입력 Feature {len(missing)}개가 없습니다: {preview}{suffix}"
+        )
+
+    features = df.loc[:, feature_columns].copy()
+    categorical = list(artifact["categorical_features"])
+    numeric = [column for column in feature_columns if column not in categorical]
+    for column in categorical:
+        features[column] = features[column].fillna("미상").astype(str)
+    features[numeric] = features[numeric].apply(pd.to_numeric, errors="coerce")
+    features[numeric] = features[numeric].replace([np.inf, -np.inf], np.nan)
+    return features
+
+
+def predict_probabilities(df: pd.DataFrame) -> np.ndarray:
+    """각 행의 다음 주 중도이탈 확률을 0~1 범위로 반환한다."""
+    if df.empty:
+        return np.array([], dtype=float)
+    artifact = _require_artifact()
+    features = prepare_model_input(df)
+    probabilities = np.asarray(artifact["model"].predict_proba(features)[:, 1], dtype=float)
+    if not np.isfinite(probabilities).all():
+        raise ValueError("CatBoost가 NaN 또는 무한대 확률을 반환했습니다.")
+    return probabilities
 
 
 def predict_risk(df: pd.DataFrame) -> np.ndarray:
-    """0~100 위험 점수를 반환한다.
-    실제 모델이 있으면 model.predict_proba(X)[:,1]*100, 없으면 placeholder_score()."""
-    if df.empty:
-        return np.array([])
-    model = load_model()
-    if model is None:
-        return placeholder_score(df)
-    X = df[feature_columns(df)]
-    proba = model.predict_proba(X)[:, 1]
-    return proba * 100
+    """기존 화면 호환용으로 다음 주 이탈확률을 0~100 점수로 반환한다."""
+    return predict_probabilities(df) * 100.0
+
+
+def predict_is_at_risk(df: pd.DataFrame) -> np.ndarray:
+    """고정 임계값 0.065 기준 위험 학생 여부를 반환한다."""
+    return predict_probabilities(df) >= decision_threshold()
+
+
+def prediction_frame(df: pd.DataFrame) -> pd.DataFrame:
+    """화면에서 바로 사용할 확률·점수·위험 여부 결과를 반환한다."""
+    probabilities = predict_probabilities(df)
+    threshold = decision_threshold()
+    return pd.DataFrame(
+        {
+            "next_week_withdrawal_probability": probabilities,
+            "risk_score_pct": probabilities * 100.0,
+            "is_at_risk": probabilities >= threshold,
+            "decision_threshold": threshold,
+        },
+        index=df.index,
+    )
+
+
+@st.cache_data(show_spinner=False)
+def load_cohort_profiles() -> pd.DataFrame:
+    """과목·운영회차·주차별 124개 Feature 기준 프로필을 읽는다."""
+    if not PROFILE_PATH.exists():
+        return pd.DataFrame()
+    profiles = pd.read_csv(PROFILE_PATH, low_memory=False)
+    coverage = feature_coverage(profiles)
+    if coverage["missing_columns"]:
+        raise ValueError(
+            "CatBoost 코호트 프로필의 Feature가 불완전합니다: "
+            f"{coverage['missing_columns'][:10]}"
+        )
+    if profiles.duplicated(PROFILE_KEY_COLUMNS).any():
+        raise ValueError("CatBoost 코호트 프로필의 복합키가 중복됩니다.")
+    return profiles
+
+
+def cohort_profiles_ready() -> bool:
+    return PROFILE_PATH.exists() and not load_cohort_profiles().empty
+
+
+def cohort_profile(
+    profiles: pd.DataFrame,
+    code_module: str,
+    code_presentation: str,
+    prediction_week: int,
+) -> pd.Series:
+    """선택한 과목·운영회차·예측주차의 모델 입력 기준 행을 반환한다."""
+    selected = profiles.loc[
+        profiles["code_module"].eq(code_module)
+        & profiles["code_presentation"].eq(code_presentation)
+        & profiles["prediction_week"].eq(prediction_week)
+    ]
+    if len(selected) != 1:
+        raise ValueError(
+            "선택한 과목·운영회차·예측주차의 CatBoost 프로필을 하나로 찾지 못했습니다."
+        )
+    return selected.iloc[0].copy()
+
+
+__all__ = [
+    "MODEL_PATH",
+    "PROFILE_PATH",
+    "cohort_profile",
+    "cohort_profiles_ready",
+    "decision_threshold",
+    "feature_coverage",
+    "load_cohort_profiles",
+    "load_model",
+    "load_model_artifact",
+    "model_info",
+    "model_ready",
+    "predict_is_at_risk",
+    "predict_probabilities",
+    "predict_risk",
+    "prediction_frame",
+    "prepare_model_input",
+    "required_feature_columns",
+]

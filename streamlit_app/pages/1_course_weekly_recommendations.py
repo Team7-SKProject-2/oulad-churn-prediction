@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
-load_css(f'{ROOT_DIR}\styles.css')
+load_css(ROOT_DIR / "styles.css")
 
 st.set_page_config(page_title="과목/주차별 행동제안", layout="wide")
 inject_base_css()
