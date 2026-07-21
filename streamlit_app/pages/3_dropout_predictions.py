@@ -43,7 +43,7 @@ with st.container(border=True):
     module = c1.selectbox("과목", modules)
     presentations = sorted(snapshots.loc[snapshots["code_module"] == module, "code_presentation"].unique().tolist())
     presentation = c2.selectbox("운영 회차", presentations)
-    week_options = list(range(1, 21)) if model_ready() else weeks
+    week_options = list(range(1, 10)) if model_ready() else weeks
     week = c3.selectbox("예측 주차(cutoff_week)", week_options, index=len(week_options) - 1)
     if model_ready() and week not in weeks:
         st.caption(
