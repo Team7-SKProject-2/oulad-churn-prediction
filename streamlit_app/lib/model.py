@@ -23,7 +23,6 @@ import pandas as pd
 import streamlit as st
 import json
 
-MODEL_PATH = Path(__file__).resolve().parent.parent.parent / "models" / "artifacts" / "catboost.joblib"
 # 스냅샷 CSV에서 식별자/타깃 컬럼 (모델 입력에서 제외)
 ID_COLUMNS = ["code_module", "code_presentation", "id_student", "cutoff_week", "target"]
 
@@ -38,7 +37,7 @@ from .data import PROJECT_ROOT
 
 # data.py가 data/interim을 기준으로 이미 찾아둔 프로젝트 루트를 그대로 사용한다.
 # (streamlit_app 폴더 기준이 아니라 실제 저장소 루트의 models/ 폴더를 가리켜야 하므로)
-MODEL_PATH = PROJECT_ROOT / "models" / "artifacts" / "catboost.joblib"
+MODEL_PATH = PROJECT_ROOT / "models" / "artifacts" / "early_catboost.joblib"
 
 # 스냅샷 CSV에서 식별자/타깃 컬럼 (모델 입력에서 제외)
 ID_COLUMNS = ["code_module", "code_presentation", "id_student", "cutoff_week", "target"]
