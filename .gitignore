@@ -45,3 +45,6 @@ models/**/*_oof_predictions.csv
 
 # Local logs
 *.log
+
+# Reproducible analysis outputs
+outputs/

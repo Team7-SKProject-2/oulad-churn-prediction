@@ -1,2 +1,0 @@
-﻿model,search_mode,unique_probability_candidates,threshold,accuracy,precision,recall,specificity,f1_score,roc_auc,pr_auc,TP,FP,TN,FN,predicted_positive_count,predicted_positive_ratio,youden_j
-XGBoost weighted,all_unique_oof_probabilities,833802,0.8727346062660217,0.9893732437248954,0.17494847721547974,0.1145083932853717,0.9959440885343672,0.13841833499411177,0.8438828681643706,0.0751959398409417,764.0,3603.0,884730.0,5908.0,4367.0,0.0048793023502662,0.11045248181973899
