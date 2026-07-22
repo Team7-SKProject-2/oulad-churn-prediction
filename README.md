@@ -231,3 +231,37 @@ python -m unittest discover -s tests -v
 - Early 성능은 완전히 독립된 외부 테스트 성능으로 표현하지 않습니다.
 - 이탈률이 매우 낮은 불균형 문제이므로 ROC-AUC만 보지 않고 PR-AUC,
   Precision, Recall을 함께 해석합니다.
+
+## 비교: 예측 기준 시점별 추가 실험
+
+> [!NOTE]
+> 이 보조 실험은 기존 **1~10주차 다음 주 이탈 예측 CatBoost 서비스**를
+> 대체하지 않는다. 운영 시점에 따라 관측할 수 있는 정보와 Target 기간이
+> 어떻게 달라지는지 확인하기 위한 별도의 실험이다.
+
+### 시점별 예측 질문
+
+- **Week 1:** 개강일 현재 수강 중인 학생의 향후 4주 이탈
+- **Week 5:** 5주차 시작 시점 현재 수강 중인 학생의 종강 전 이탈
+- **Week 9:** 9주차 시작 시점 현재 수강 중인 학생의 종강 전 이탈
+
+![시점이 다른 세 가지 예측 질문](reports/figures/prediction_point_target_timeline.png)
+
+| 실험 | 예측 시점 | Target이 1인 기간 | 관측 데이터 | Feature 수 |
+|---|---|---|---|---:|
+| `week1_next4` | 개강일 (`day 0`) | `day 0~27` 이탈 | 개강 전 정적·수강 정보 | 8개 |
+| `week5_course_end` | 5주차 시작 (`day 28`) | `day 28` 이후 종강 전 이탈 | `day 0~27` 행동 | 14개 |
+| `week9_course_end` | 9주차 시작 (`day 56`) | `day 56` 이후 종강 전 이탈 | `day 0~55` 행동 | 14개 |
+
+> [!IMPORTANT]
+> 세 질문은 모집단과 Target 기간이 서로 다르다. 따라서 모델, threshold,
+> 예측확률과 성능을 서로 바꾸어 사용하거나 절대 점수만으로 직접 순위를
+> 매기지 않는다.
+
+### Validation PR 곡선
+
+![예측 기준 시점별 Validation PR 곡선](reports/figures/prediction_point_validation_pr_curves_zoom.png)
+
+가독성을 위해 각 시점의 선택 모델, 비교 모델과 양성률 기준선만 표시했다.
+패널별 y축 확대 범위가 다르므로 곡선의 높이를 시점 간 절대 성능 차이로
+직접 해석하지 않는다.
