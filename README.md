@@ -158,11 +158,6 @@ CatBoost가 최고”라고 해석하지 않습니다.
 | GRU | 최근 4주, 11개 행동 Feature | 0.7255 | 0.0271 | 49.54% |
 | TCN | 최근 4주, 11개 행동 Feature | 0.7259 | 0.0279 | 49.34% |
 
-![GRU·TCN ROC/PR 비교](reports/figures/deep_learning_roc/gru_tcn_roc_pr_comparison.png)
-
-- [GRU ROC·PR Curve](reports/figures/deep_learning_roc/gru_roc_pr_curves.png)
-- [TCN ROC·PR Curve](reports/figures/deep_learning_roc/tcn_roc_pr_curves.png)
-
 GRU·TCN은 무작위 기준보다 높은 분류 신호를 학습했지만 CatBoost를 넘지
 못했고 앙상블도 개선되지 않아, 최종 Streamlit 추론 경로에는 연결하지
 않았습니다.
