@@ -16,9 +16,11 @@ import pandas as pd
 from catboost import CatBoostClassifier
 
 
-MODEL_DIR = Path(__file__).resolve().parent
-DATA_PATH = MODEL_DIR / "data" / "oulad_weekly_next_week.csv"
-ARTIFACT_DIR = MODEL_DIR / "artifacts"
+ML_DIR = Path(__file__).resolve().parent
+MODELS_DIR = ML_DIR.parent
+PROJECT_ROOT = MODELS_DIR.parent
+DATA_PATH = MODELS_DIR / "data" / "oulad_weekly_next_week.csv"
+ARTIFACT_DIR = PROJECT_ROOT / "artifacts"
 MODEL_PATH = ARTIFACT_DIR / "catboost.joblib"
 TARGET_COL = "target_next_week_withdrawn"
 ID_COL = "id_student"

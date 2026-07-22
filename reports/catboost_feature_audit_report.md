@@ -88,9 +88,9 @@ PR-AUC가 더 높았고, 실제 위험군 구성도 대부분 겹쳤다. 기존 
 
 축소 결과 파일은 다음과 같다.
 
-- `models/demo_1/catboost_reduced_feature_metrics.csv`
-- `models/demo_1/catboost_reduced_feature_fold_metrics.csv`
-- `models/demo_1/catboost_reduced_feature_oof_predictions.csv` (대용량·Git 제외)
+- `models/ML/catboost_reduced_feature_metrics.csv`
+- `models/ML/catboost_reduced_feature_fold_metrics.csv`
+- `models/ML/catboost_reduced_feature_oof_predictions.csv` (대용량·Git 제외)
 
 ## 재현 방법
 
@@ -98,5 +98,5 @@ PR-AUC가 더 높았고, 실제 위험군 구성도 대부분 겹쳤다. 기존 
 동일한 학생 Fold에서 재현할 수 있다. 이 실험은 최종 124개 모델을 대체하는 것이
 아니라 Feature 축소 시 성능 변화가 작다는 점을 확인한 추가 분석으로 관리한다.
 
-최종 모델과 124개 Feature 순서는 `models/artifacts/catboost.joblib`에 함께
-저장되어 있다. 모델 재생성 코드는 `models/08_train_final_catboost_joblib.py`다.
+최종 모델과 124개 Feature 순서는 `artifacts/catboost.joblib`에 함께
+저장되어 있다. 모델 재생성 코드는 `models/ML/08_train_final_catboost_joblib.py`다.

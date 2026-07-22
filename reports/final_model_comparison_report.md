@@ -63,9 +63,9 @@ SHAP·Streamlit·저장 모델이 124개 기준으로 연결되어 있어 추가
 
 ## 7. 산출물
 
-- 최종 모델: `models/artifacts/catboost.joblib`
-- Early 운영 설정: `models/artifacts/early_service_config.json`
-- 최종 모델 생성: `models/08_train_final_catboost_joblib.py`
+- 최종 모델: `artifacts/catboost.joblib`
+- Early 운영 설정: `artifacts/early_service_config.json`
+- 최종 모델 생성: `models/ML/08_train_final_catboost_joblib.py`
 - Early CatBoost 평가: `src/early_catboost_threshold_report.py`
 - Early 모델별 결과: `outputs/threshold_analysis/early_*/`
 - 딥러닝 비교: `reports/demo1_gru_comparison_report.md`

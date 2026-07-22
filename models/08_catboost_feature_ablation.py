@@ -27,7 +27,7 @@ from common_weekly_metrics import (  # noqa: E402
 )
 
 
-OUTPUT_DIR = MODELS_DIR / "demo_1"
+OUTPUT_DIR = MODELS_DIR / "ML"
 TARGET_COL = "target_next_week_withdrawn"
 ID_COL = "id_student"
 KEYS = ["code_module", "code_presentation", ID_COL, "prediction_week"]

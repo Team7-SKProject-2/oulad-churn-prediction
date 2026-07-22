@@ -15,11 +15,11 @@ import pandas as pd
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MODEL_PATH = ROOT / "models" / "artifacts" / "catboost.joblib"
-OUTPUT_PATH = ROOT / "models" / "artifacts" / "catboost_cohort_profiles.csv"
+MODEL_PATH = ROOT / "artifacts" / "catboost.joblib"
+OUTPUT_PATH = ROOT / "artifacts" / "catboost_cohort_profiles.csv"
 DATA_CANDIDATES = [
     ROOT / "models" / "data" / "oulad_weekly_next_week.csv",
-    ROOT / "models" / "demo_1" / "used_data" / "weekly_next_week_with_vle_enhanced.csv",
+    ROOT / "models" / "ML" / "used_data" / "weekly_next_week_with_vle_enhanced.csv",
 ]
 GROUP_COLUMNS = ["code_module", "code_presentation", "prediction_week"]
 

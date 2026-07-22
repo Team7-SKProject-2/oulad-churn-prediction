@@ -25,7 +25,7 @@ try:
         DEFAULT_START_WEEK,
         resolved_data_path,
     )
-except ImportError:  # ``python models/early_train_final_*.py`` 직접 실행 지원
+except ImportError:  # ``python models/ML/early_train_final_*.py`` 직접 실행 지원
     from common_weekly_metrics import (
         ID_COL,
         TARGET_COL,
@@ -40,7 +40,7 @@ except ImportError:  # ``python models/early_train_final_*.py`` 직접 실행 �
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ARTIFACT_DIR = Path(__file__).resolve().parent / "artifacts"
+DEFAULT_ARTIFACT_DIR = PROJECT_ROOT / "artifacts"
 GROUP_COLUMNS = ["code_module", "code_presentation", "prediction_week"]
 
 

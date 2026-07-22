@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -11,24 +12,20 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
-try:
-    from .early_final_artifact_common import (
-        FinalArtifactConfig,
-        add_final_artifact_cli_arguments,
-        load_final_training_data,
-        print_artifact_result,
-        resolve_decision_threshold,
-        save_final_artifact,
-    )
-except ImportError:  # 직접 실행 지원
-    from early_final_artifact_common import (
-        FinalArtifactConfig,
-        add_final_artifact_cli_arguments,
-        load_final_training_data,
-        print_artifact_result,
-        resolve_decision_threshold,
-        save_final_artifact,
-    )
+ML_DIR = Path(__file__).resolve().parent
+MODELS_DIR = ML_DIR.parent
+PROJECT_ROOT = MODELS_DIR.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from models.early_final_artifact_common import (  # noqa: E402
+    FinalArtifactConfig,
+    add_final_artifact_cli_arguments,
+    load_final_training_data,
+    print_artifact_result,
+    resolve_decision_threshold,
+    save_final_artifact,
+)
 
 
 CONFIG = FinalArtifactConfig(
@@ -36,7 +33,7 @@ CONFIG = FinalArtifactConfig(
     artifact_filename="early_randomforest.joblib",
     profiles_filename="early_randomforest_cohort_profiles.csv",
     threshold_results_path=(
-        Path(__file__).resolve().parents[1]
+        PROJECT_ROOT
         / "outputs"
         / "threshold_analysis"
         / "early_randomforest"

@@ -29,7 +29,7 @@ CONFIG = OOFModelConfig(
     oof_path=(
         PROJECT_ROOT
         / "models"
-        / "demo_1"
+        / "ML"
         / "randomforest_weekly_next_week_oof_predictions.csv"
     ),
     output_dir=PROJECT_ROOT / "outputs" / "threshold_analysis" / "randomforest",

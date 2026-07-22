@@ -11,7 +11,8 @@ from sklearn.metrics import average_precision_score, brier_score_loss
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-MODEL_DIR = PROJECT_ROOT / "models" / "demo_1"
+ML_DIR = PROJECT_ROOT / "models" / "ML"
+DL_DIR = PROJECT_ROOT / "models" / "DL"
 FIGURE_DIR = PROJECT_ROOT / "reports" / "figures" / "final_model_comparison"
 TARGET = "target_next_week_withdrawn"
 KEYS = ["code_module", "code_presentation", "id_student", "prediction_week", TARGET]
@@ -19,18 +20,22 @@ TOP_FRACTION = 0.20
 
 OOF_SPECS = {
     "CatBoost 124": (
+        ML_DIR,
         "catboost_weekly_next_week_oof_predictions.csv",
         "catboost_oof_probability",
     ),
     "CatBoost 108": (
+        ML_DIR,
         "catboost_reduced_feature_oof_predictions.csv",
         "catboost_reduced_oof_probability",
     ),
     "GRU 4-week": (
+        DL_DIR,
         "gru_weekly_next_week_oof_predictions.csv",
         "gru_oof_probability",
     ),
     "TCN 4-week": (
+        DL_DIR,
         "tcn_weekly_next_week_oof_predictions.csv",
         "tcn_oof_probability",
     ),
@@ -74,8 +79,8 @@ def top_metrics(
 def load_oof() -> tuple[pd.DataFrame, dict[str, str]]:
     merged: pd.DataFrame | None = None
     probability_columns: dict[str, str] = {}
-    for model, (filename, probability_column) in OOF_SPECS.items():
-        path = MODEL_DIR / filename
+    for model, (model_dir, filename, probability_column) in OOF_SPECS.items():
+        path = model_dir / filename
         if not path.is_file():
             raise FileNotFoundError(f"OOF 파일이 없습니다: {path}")
         current = pd.read_csv(path, usecols=[*KEYS, probability_column])
@@ -226,18 +231,18 @@ def main() -> None:
     data, probability_columns = load_oof()
     metrics, true_positive_sets = calculate_comparison(data, probability_columns)
     metrics.to_csv(
-        MODEL_DIR / "final_model_comparison_metrics.csv",
+        ML_DIR / "final_model_comparison_metrics.csv",
         index=False,
         encoding="utf-8-sig",
     )
     correlation = make_correlation_figure(data, probability_columns)
     correlation.to_csv(
-        MODEL_DIR / "final_model_rank_correlations.csv",
+        ML_DIR / "final_model_rank_correlations.csv",
         encoding="utf-8-sig",
     )
     deciles = make_risk_decile_figure(data, probability_columns)
     deciles.to_csv(
-        MODEL_DIR / "final_model_risk_deciles.csv",
+        ML_DIR / "final_model_risk_deciles.csv",
         index=False,
         encoding="utf-8-sig",
     )
@@ -257,7 +262,7 @@ def main() -> None:
         }
     )
     complement.to_csv(
-        MODEL_DIR / "deep_model_catboost_complement.csv",
+        DL_DIR / "deep_model_catboost_complement.csv",
         index=False,
         encoding="utf-8-sig",
     )

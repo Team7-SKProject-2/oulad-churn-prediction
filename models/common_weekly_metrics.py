@@ -54,7 +54,7 @@ def resolve_data_path(cli_path: str | Path | None) -> Path:
         candidates.append(Path(env_path).expanduser())
     candidates.append(
         Path(__file__).resolve().parent
-        / "demo_1"
+        / "ML"
         / "used_data"
         / "weekly_next_week_with_vle_enhanced.csv"
     )

@@ -37,13 +37,13 @@ DEFAULT_MODEL_SPECS = (
     # CatBoost: 학습 과정에서 저장한 OOF 양성 클래스 확률을 사용합니다.
     (
         "CatBoost",
-        PROJECT_ROOT / "models" / "demo_1" / "catboost_weekly_next_week_oof_predictions.csv",
+        PROJECT_ROOT / "models" / "ML" / "catboost_weekly_next_week_oof_predictions.csv",
         "catboost_oof_probability",
     ),
     # 가중 XGBoost: scale_pos_weight를 적용해 생성한 OOF 확률을 사용합니다.
     (
         "XGBoost weighted",
-        PROJECT_ROOT / "models" / "demo_1" / "xgboost_weekly_next_week_oof_predictions.csv",
+        PROJECT_ROOT / "models" / "ML" / "xgboost_weekly_next_week_oof_predictions.csv",
         "xgboost_scaled_oof_probability",
     ),
     # ElasticNet: 로지스틱 ElasticNet 모델에서 저장한 OOF 양성 클래스 확률을 사용합니다.
@@ -51,7 +51,7 @@ DEFAULT_MODEL_SPECS = (
         "ElasticNet",
         PROJECT_ROOT
         / "models"
-        / "demo_1"
+        / "ML"
         / "elasticnet_logistic_weekly_next_week_oof_predictions.csv",
         "elasticnet_logistic_oof_probability",
     ),

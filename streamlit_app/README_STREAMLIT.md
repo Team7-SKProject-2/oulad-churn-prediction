@@ -42,9 +42,8 @@ project-root/
 │       ├── assessments_processed.csv
 │       ├── student_assessment_processed.csv
 │       └── vle_snapshot_week_{1,2,4,...}.csv   # cutoff_week별 모델 스냅샷
-├── models/
-│   └── artifacts/
-│       └── catboost.joblib             # 선택 사항 (없으면 규칙 기반 점수로 대체)
+├── artifacts/
+│   └── early_catboost.joblib           # 선택 사항 (없으면 규칙 기반 점수로 대체)
 ├── requirements.txt
 └── README.md
 ```
@@ -85,7 +84,7 @@ streamlit run app.py             # 또는 streamlit run 0_dashboard.py
 - `lib/data.py`의 `_find_project_root()`가 `data/interim` 폴더를 자동으로 찾으므로,
   `lib/`가 저장소 루트 바로 아래(`project-root/lib/`)에 있기만 하면 `app.py` 위치가
   루트든 하위 폴더든 크게 상관없습니다.
-- `lib/model.py`는 `models/artifacts/catboost.joblib`가 없거나 `catboost` 패키지가
+- `lib/model.py`는 `artifacts/early_catboost.joblib`가 없거나 `catboost` 패키지가
   미설치 상태면 조용히 규칙 기반 점수로 폴백하고, 화면에 "임시 규칙 기반 점수" 안내를 띄웁니다.
 - `sample_defaults.json`은 모델이 요구하지만 현재 스냅샷 CSV엔 없는 피처를 채우기 위한
   참조용 평균/최빈값 테이블입니다. 전체 데이터 통계가 갱신되면 이 파일만 재계산해서

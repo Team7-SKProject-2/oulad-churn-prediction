@@ -3,37 +3,37 @@
 from __future__ import annotations
 
 import argparse
+import importlib
+import sys
 from pathlib import Path
 
 import pandas as pd
 
-try:
-    from .early_elasticnet_logistic_weekly_next_week import CANDIDATES, Candidate, build_pipeline
-    from .early_final_artifact_common import (
-        FinalArtifactConfig,
-        add_final_artifact_cli_arguments,
-        load_final_training_data,
-        print_artifact_result,
-        resolve_decision_threshold,
-        save_final_artifact,
-    )
-except ImportError:  # 직접 실행 지원
-    from early_elasticnet_logistic_weekly_next_week import CANDIDATES, Candidate, build_pipeline
-    from early_final_artifact_common import (
-        FinalArtifactConfig,
-        add_final_artifact_cli_arguments,
-        load_final_training_data,
-        print_artifact_result,
-        resolve_decision_threshold,
-        save_final_artifact,
-    )
+ML_DIR = Path(__file__).resolve().parent
+MODELS_DIR = ML_DIR.parent
+PROJECT_ROOT = MODELS_DIR.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
+_elasticnet_module = importlib.import_module(
+    "models.ML.04_elasticnet_logistic_weekly_next_week"
+)
+CANDIDATES = _elasticnet_module.CANDIDATES
+Candidate = _elasticnet_module.Candidate
+build_pipeline = _elasticnet_module.build_pipeline
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+from models.early_final_artifact_common import (  # noqa: E402
+    FinalArtifactConfig,
+    add_final_artifact_cli_arguments,
+    load_final_training_data,
+    print_artifact_result,
+    resolve_decision_threshold,
+    save_final_artifact,
+)
 DEFAULT_MODEL_METRICS_CSV = (
     PROJECT_ROOT
     / "models"
-    / "demo_1"
+    / "ML"
     / "elasticnet_logistic_weekly_next_week_metrics.csv"
 )
 CONFIG = FinalArtifactConfig(

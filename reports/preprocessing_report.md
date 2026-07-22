@@ -323,7 +323,7 @@ python notebooks/final_data_demo/06_build_weekly_next_week_enhanced_features.py
 최종 데이터:
 
 - 모델 입력 기준 파일: `models/data/oulad_weekly_next_week.csv`
-- 확장 Feature 생성 스크립트의 기본 출력 경로: `models/demo_1/used_data/weekly_next_week_with_vle_enhanced.csv`
+- 확장 Feature 생성 스크립트의 기본 출력 경로: `models/ML/used_data/weekly_next_week_with_vle_enhanced.csv`
 
 현재 모델 입력 기준 파일과 확장 Feature 생성 스크립트의 기본 출력 경로가 다르다. 제출·운영 파이프라인에서는 스크립트 출력 경로를 `models/data/oulad_weekly_next_week.csv`로 통일하거나, 검증된 복사·이름 변경 단계와 SHA-256 비교를 명시해야 한다. 최종 파일은 위 Manifest의 행·열·복합키·Target 건수와 해시가 모두 일치할 때만 동일 버전으로 판정한다.
 
