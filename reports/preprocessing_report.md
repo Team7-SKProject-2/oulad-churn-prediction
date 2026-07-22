@@ -1,5 +1,8 @@
 # 7팀 인공지능 데이터 전처리 결과서
 
+- 문서 버전: 1.1
+- 작성·검토일: 2026-07-22
+
 ## 1. 전처리 결과 요약
 
 - 프로젝트: OULAD 기반 **1~10주차 다음 주 중도이탈 조기경보**
@@ -66,6 +69,26 @@ target_next_week_withdrawn = int(withdraw_week == prediction_week + 1)
 
 공통 키 병합은 `one_to_one` 또는 `many_to_one`으로 검증한다. VLE 활동 유형 연결 실패 0건, 주차 집계와 최종 주간 테이블 복합키 중복 0건이다.
 
+### 기존 병합 데이터 커버리지
+
+`pre_merged.csv`는 학생 수강 단위가 아니라 평가 항목·제출 건 단위로 행이 반복되므로, 전체 행 수가 아닌 고유 수강키로 커버리지를 계산했다.
+
+고유 수강키:
+
+```text
+code_module + code_presentation + id_student
+```
+
+| 데이터 | 전체 행 | 고유 수강 단위 | 원본 대비 미포함 | 커버리지 |
+|---|---:|---:|---:|---:|
+| 원본 `studentInfo.csv` | 32,593 | 32,593 | 0 | 100.00% |
+| `pre_merged.csv` | 166,036 | 24,818 | 7,775 | 76.15% |
+| 최종 주간 모델 데이터 | 895,005 | 29,109 | 3,484 | 89.31% |
+
+`pre_merged.csv`는 결측 행 제거가 적용된 중간 데이터와 평가 제출 정보를 Inner Join하여 만든 과거 EDA용 산출물이다. 평가 기록이 없거나 일부 인구통계·등록·점수 값이 결측인 수강 건이 제외될 수 있으므로 최종 모델 모집단의 기준으로 사용하지 않았다.
+
+최종 주간 데이터는 원본 수강 코호트를 기준으로 Left Join하여 활동·평가 기록이 없는 학생도 유지한다. 모델 데이터에서 제외한 3,484건은 병합 실패가 아니라 다음 주 Target 시점을 정의할 수 없는 2,770건과 사전 관측 주가 없는 1주차 이탈 714건이다.
+
 ## 5. VLE 전처리와 Feature Engineering
 
 `studentVle`과 `vle`를 `code_module + code_presentation + id_site`로 연결하고 7일 단위로 집계한다.
@@ -129,7 +152,7 @@ week_index = (date // 7) + 1
 | 4 | 27,803 | 360 | 1.29% | 31.90% |
 | 10 | 26,209 | 220 | 0.84% | 51.81% |
 
-![전체 주차별 이탈률](figures/preprocessing/weekly_dropout_rate.png)
+![전체 주차별 이탈률](figures/weekly_dropout_rate.png)
 
 ### 과목별 차이
 
@@ -137,7 +160,7 @@ week_index = (date // 7) + 1
 - BBB·CCC·DDD·EEE·FFF의 최빈 이탈 주차는 2주차다.
 - AAA 중앙 이탈 20주, GGG 15주로 중후반 모니터링도 필요하다.
 
-![과목별 주차 이탈률](figures/preprocessing/module_week_dropout_heatmap.png)
+![과목별 주차 이탈률](figures/module_week_dropout_heatmap.png)
 
 ### Target별 행동 차이
 
@@ -161,9 +184,69 @@ week_index = (date // 7) + 1
 
 전처리 단계에서는 임의 Train/Test 라벨을 고정하지 않았다. 독립 외부 Test가 없으므로 OOF 성능을 외부 Test 성능으로 표현하지 않는다.
 
+### 학생 단위 3-Fold 분리 결과
+
+`id_student`를 Group으로 사용해 동일 학생의 모든 과목·운영회차·예측주차를 하나의 검증 Fold에만 배정했다.
+
+| 검증 Fold | 학습 행 | 검증 행 | 검증 학생 | 검증 Target=1 | 검증 Target 비율 |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 596,670 | 298,335 | 8,681 | 2,219 | 0.7438% |
+| 2 | 596,670 | 298,335 | 8,682 | 2,232 | 0.7482% |
+| 3 | 596,670 | 298,335 | 8,682 | 2,221 | 0.7445% |
+
+| 검증 항목 | 결과 |
+|---|---|
+| Fold 간 `id_student` 중복 | 0명 |
+| 전체 행 OOF 검증 횟수 | 행당 1회 |
+| 분리 방식 | `GroupKFold(n_splits=3)` |
+| Fold 셔플 | 미적용 |
+| 모델 난수 시드 | 42 |
+| 인코딩·대체·스케일링·샘플링 | 필요한 경우 각 학습 Fold 내부에서만 학습 |
+
+`GroupKFold`의 Fold 배정 자체에는 난수 시드를 사용하지 않으며, 모델 학습의 재현성을 위해 CatBoost `random_seed=42`를 사용한다.
+
 ## 10. 전처리 전후 결과
 
-### 초기 Snapshot
+### 전처리 산출물 구분
+
+초기 후보 주차 검증용 Snapshot과 최종 서비스용 주간 데이터는 분석 단위, Target과 결측 처리 정책이 다른 별도 산출물이다.
+
+| 구분 | 초기 Snapshot | 최종 주간 데이터 |
+|---|---|---|
+| 파일 | `model_snapshot_week_1·2·4.csv` | `oulad_weekly_next_week.csv` |
+| 분석 단위 | 학생×과목×운영회차 | 학생×과목×운영회차×예측주차 |
+| Target | 향후 최종 `Withdrawn` 여부 | 바로 다음 주 `Withdrawn` 여부 |
+| 행 | 29,018 / 27,984 / 27,449 | 895,005 |
+| 열 | 99 | 126 |
+| 결측 처리 | 최종 결측 0 | 구조적 미관측은 NaN 유지 |
+| 사용 목적 | 후보 관측 시점 비교·기초 EDA | 최종 서비스 모델 학습·OOF 평가 |
+| 운영 범위 | 1·2·4주차 비교 | 전체 1~38주 생성, 서비스 1~10주 |
+
+### 최종 주간 데이터의 단계별 행 수
+
+| 처리 단계 | 수강 단위·행 | 증감 | 처리 사유 |
+|---|---:|---:|---|
+| 원본 수강 코호트 | 32,593 수강 건 | - | `studentInfo` 기준 |
+| Target 시점 정의 불가 제외 후 | 29,823 수강 건 | -2,770 | 개강 전 이탈 2,676, 이탈일 결측 93, 운영 종료 후 이탈 1 |
+| 사전 관측이 없는 1주차 이탈 제외 후 | 29,109 수강 건 | -714 | 0주차 Feature가 없어 다음 주 예측 행 생성 불가 |
+| 예측 가능 주차 패널 확장 | 895,005 주차 행 | 행 단위 변경 | 수강 건마다 예측 가능한 주차까지 반복 |
+| 1~10주차 운영 구간 | 271,663 주차 행 | 운영 범위 선택 | 조기개입 서비스 대상 구간 |
+
+최종 데이터의 행 수 증가는 중복 병합 때문이 아니라 하나의 수강 건을 여러 예측 주차로 확장했기 때문이다. 최종 복합키 `code_module + code_presentation + id_student + prediction_week` 중복은 0건이다.
+
+### 초기 Snapshot의 단계별 행 수
+
+| 처리 단계 | 1주차 | 2주차 | 4주차 |
+|---|---:|---:|---:|
+| 원본 수강 단위 | 32,593 | 32,593 | 32,593 |
+| 철회 시점 분석 불가 제외 | -2,770 | -2,770 | -2,770 |
+| 유효 Target 대상 | 29,823 | 29,823 | 29,823 |
+| 관측 시점 이후 등록자 제외 | -92 | -58 | -18 |
+| 관측 시점 이전 철회자 제외 | -713 | -1,781 | -2,356 |
+| 최종 Snapshot | **29,018** | **27,984** | **27,449** |
+| 원본 대비 유지율 | **89.0%** | **85.9%** | **84.2%** |
+
+주차가 경과할수록 관측 시점 이전에 이미 철회한 학생이 증가하므로 Snapshot 행 수가 감소한다. 이는 임의 결측 제거가 아니라 각 관측 시점에 실제로 예측 가능한 재학생만 유지한 결과다.
 
 | 파일 | 행 | 열 | 키 중복 | 결측 |
 |---|---:|---:|---:|---:|
@@ -183,6 +266,19 @@ week_index = (date // 7) + 1
 
 최종 주간 테이블에는 16개 열, 2,232,074개의 구조적 결측 셀이 있다. 평가 미발생·제출 미확인과 같은 의미를 보존해 NaN으로 유지하며 CatBoost가 native missing으로 처리한다. `vle_cum_unique_sites`의 대체 누적 폭 Feature인 `cum_unique_site_week_count`는 결측이 없다.
 
+### 최종 파일 Manifest
+
+| 항목 | 값 |
+|---|---|
+| 파일 | `models/data/oulad_weekly_next_week.csv` |
+| 파일 크기 | 630,426,773 bytes, 약 601.2 MiB |
+| 행×열 | 895,005×126 |
+| 고유 수강 단위 | 29,109 |
+| 고유 학생 | 26,045 |
+| 복합키 중복 | 0 |
+| Target=1 | 6,672 |
+| SHA-256 | `EFB2E0B437F806A232FDAA83C0F438C984F5CFA0369C9066388E5395BEA061F5` |
+
 ## 11. 재현 방법
 
 ```bash
@@ -192,7 +288,21 @@ python -m src.vle_features
 python -m src.build_model_snapshots
 python -m src.export_eda_artifacts
 python -m src.check_preprocessing_handoff
+python notebooks/final_data_demo/04_build_weekly_next_week_dataset.py
+python notebooks/final_data_demo/06_build_weekly_next_week_enhanced_features.py
 ```
+
+단계별 재현 경로:
+
+| 단계 | 입력 | 코드 | 주요 출력·검증 |
+|---|---|---|---|
+| 원본 점검 | `data/raw/*.csv` | `src/data.py` | 필수 파일·컬럼·키 점검 |
+| VLE 집계 | `studentVle.csv`, `vle.csv` | `src/vle_features.py` | 원본 10,655,280행 반영, 연결 실패 0 |
+| 초기 Snapshot | 코호트+VLE+평가 | `src/build_model_snapshots.py` | 1·2·4주차 99열, 중복·결측 0 |
+| EDA 산출물 | 코호트·Snapshot | `src/export_eda_artifacts.py` | 주차·과목 요약 CSV와 PNG |
+| 다음 주 주차 패널 | 원본 코호트+평가+VLE | `04_build_weekly_next_week_dataset.py` | 895,005행 기본·VLE 데이터 |
+| 126열 확장 Feature | 주차 패널 | `06_build_weekly_next_week_enhanced_features.py` | 행·Target 유지, 확장 Feature 결합 |
+| 최종 계약 검증 | 126열 CSV | `models/common_weekly_metrics.py` | 행·열·복합키·Target·124 Feature 계약 |
 
 주요 분석 파일:
 
@@ -202,6 +312,8 @@ python -m src.check_preprocessing_handoff
 - `notebooks/04_target_vle_eda.ipynb`
 - `notebooks/05_assessment_features.ipynb`
 - `notebooks/06_demo1_weekly_eda.ipynb`
+- `notebooks/final_data_demo/04_build_weekly_next_week_dataset.py`
+- `notebooks/final_data_demo/06_build_weekly_next_week_enhanced_features.py`
 - `src/data.py`
 - `src/vle_features.py`
 - `src/build_model_snapshots.py`
@@ -210,7 +322,10 @@ python -m src.check_preprocessing_handoff
 
 최종 데이터:
 
-- `models/demo_1/used_data/weekly_next_week_with_vle_enhanced.csv`
+- 모델 입력 기준 파일: `models/data/oulad_weekly_next_week.csv`
+- 확장 Feature 생성 스크립트의 기본 출력 경로: `models/demo_1/used_data/weekly_next_week_with_vle_enhanced.csv`
+
+현재 모델 입력 기준 파일과 확장 Feature 생성 스크립트의 기본 출력 경로가 다르다. 제출·운영 파이프라인에서는 스크립트 출력 경로를 `models/data/oulad_weekly_next_week.csv`로 통일하거나, 검증된 복사·이름 변경 단계와 SHA-256 비교를 명시해야 한다. 최종 파일은 위 Manifest의 행·열·복합키·Target 건수와 해시가 모두 일치할 때만 동일 버전으로 판정한다.
 
 ## 12. 한계
 
@@ -347,3 +462,18 @@ python -m src.check_preprocessing_handoff
 122. `any_known_banked_count`
 123. `any_known_mean_score`
 124. `any_known_median_score`
+
+## 부록 B. Feature 데이터 사전 양식
+
+최종 124개 Feature의 상세 정의는 `docs/data_dictionary.md`에서 관리한다. 데이터 사전에는 최소한 Feature명, 자료형, 원천 테이블, 관측 범위, 생성식과 결측 의미를 기록한다.
+
+| Feature | 자료형 | 원천 | 관측 범위 | 생성식·정의 | 결측·0의 의미 |
+|---|---|---|---|---|---|
+| `current_total_clicks` | numeric | `studentVle` | 현재 예측 주차 | 현재 주차 `sum_click` 합계 | 활동 기록 없음은 0 |
+| `vle_cum_total_clicks` | numeric | `studentVle` | 개강 후~cutoff | 예측 시점까지 클릭 누적 합계 | 활동 기록 없음은 0 |
+| `assessment_mean_score` | numeric | 평가 데이터 | cutoff까지 | 기준일까지 확인된 점수 평균 | 평가·점수 미관측은 NaN |
+| `assessment_submission_rate` | numeric | 평가 데이터 | cutoff까지 | 제출 수 / 마감 평가 수 | 마감 평가 가용성과 함께 해석 |
+| `imd_band` | category | `studentInfo` | 등록 정보 | 경제 수준 구간 | 원본 `?`는 `Unknown` |
+| `weeks_since_last_activity` | integer | `studentVle` | cutoff까지 | 현재 주차-마지막 활동 주차 | 활동 이력이 없으면 관측 주차 수 |
+
+모델 artifact에는 Feature 이름과 순서, 범주형 Feature 목록, Target명, Group 키, 학습 데이터 SHA-256을 함께 저장해 학습·추론 입력 계약을 고정한다.
