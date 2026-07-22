@@ -97,6 +97,8 @@ oulad-churn-prediction/
 ![과목·주차별 이탈률](reports/figures/module_week_dropout_heatmap.png)
 
 ## 데이터와 Feature
+전처리데이터
+https://drive.google.com/file/d/1v8EGbl1FsDQFCregApugvN2r7t52ByHO/view?usp=sharing
 
 ### 데이터
 
