@@ -52,7 +52,7 @@ from src.evaluate import compare_thresholds, generate_thresholds
 
 DEFAULT_START_WEEK = 1
 DEFAULT_END_WEEK = 10
-DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "demo_1"
+DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "ML"
 DEFAULT_EVAL_PARAMS_DIR = PROJECT_ROOT / "data" / "eval_params"
 DEFAULT_EVAL_RESULTS_DIR = PROJECT_ROOT / "data" / "eval_results"
 # 사용자가 지정한 기존 폴더명 철자를 그대로 유지한다.
@@ -141,7 +141,7 @@ def add_common_cli_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--data-path",
         type=Path,
-        help="학습 CSV. 생략하면 OULAD_DATA_PATH 또는 models/demo_1/used_data를 확인합니다.",
+        help="학습 CSV. 생략하면 OULAD_DATA_PATH 또는 models/ML/used_data를 확인합니다.",
     )
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument(

@@ -33,7 +33,7 @@ MODEL_NAME = "CatBoost"
 TARGET_COLUMN = "target_next_week_withdrawn"
 PROBABILITY_COLUMN = "catboost_oof_probability"
 DEFAULT_OOF_PATH = (
-    PROJECT_ROOT / "models" / "demo_1" / "catboost_weekly_next_week_oof_predictions.csv"
+    PROJECT_ROOT / "models" / "ML" / "catboost_weekly_next_week_oof_predictions.csv"
 )
 DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "outputs" / "threshold_analysis" / "catboost"
 

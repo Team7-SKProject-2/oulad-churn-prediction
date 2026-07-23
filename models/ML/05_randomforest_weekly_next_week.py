@@ -1,7 +1,7 @@
-"""VLE 누적 Feature 기반 XGBoost 다음 주 이탈 예측 후보 모델을 검증한다.
+"""확장 VLE Feature 기반 랜덤포레스트 차주 이탈 예측 모델.
 
-학생별 주차 행이 여러 개이므로, 동일 id_student가 학습과 검증 Fold에 동시에
-들어가지 않도록 GroupKFold를 사용한다.
+학생 한 명이 여러 주차 행을 가질 수 있으므로, 동일 학생의 행이 학습과 검증에
+동시에 포함되지 않도록 id_student 기준 3-Fold GroupKFold를 사용한다.
 """
 
 from __future__ import annotations
@@ -11,13 +11,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import average_precision_score, brier_score_loss
 from sklearn.model_selection import GroupKFold
 from sklearn.preprocessing import OneHotEncoder
-from xgboost import XGBClassifier
 
 
-OUTPUT_DIR = Path(__file__).resolve().parent / "demo_1"
+# 모델 코드와 결과 파일은 models에, 대용량 학습 데이터는 models/ML/used_data에 둔다.
+OUTPUT_DIR = Path(__file__).resolve().parent
 DATA_PATH = OUTPUT_DIR / "used_data" / "weekly_next_week_with_vle_enhanced.csv"
 TARGET_COL = "target_next_week_withdrawn"
 ID_COL = "id_student"
@@ -26,7 +27,7 @@ TOP_FRACTION = 0.20
 
 
 def expected_calibration_error(y_true: np.ndarray, probability: np.ndarray, bins: int = 10) -> float:
-    """확률 구간별 실제 이탈비율과 예측확률의 차이(ECE)를 계산한다."""
+    """예측확률 구간별 실제 이탈률과 평균 예측확률의 차이인 ECE를 계산한다."""
     edges = np.linspace(0, 1, bins + 1)
     ece = 0.0
     for lower, upper in zip(edges[:-1], edges[1:]):
@@ -38,8 +39,12 @@ def expected_calibration_error(y_true: np.ndarray, probability: np.ndarray, bins
     return float(ece)
 
 
-def recall_at_top_fraction(y_true: np.ndarray, probability: np.ndarray, fraction: float = TOP_FRACTION) -> float:
-    """상위 위험군 비율 안에 포함된 실제 이탈자의 비율을 반환한다."""
+def recall_at_top_fraction(
+    y_true: np.ndarray,
+    probability: np.ndarray,
+    fraction: float = TOP_FRACTION,
+) -> float:
+    """예측확률 상위 위험군에 포함된 실제 이탈자의 비율을 계산한다."""
     if y_true.sum() == 0:
         return np.nan
     top_k = max(1, int(np.ceil(len(y_true) * fraction)))
@@ -48,6 +53,7 @@ def recall_at_top_fraction(y_true: np.ndarray, probability: np.ndarray, fraction
 
 
 def calculate_metrics(y_true: np.ndarray, probability: np.ndarray) -> dict[str, float]:
+    """불균형 분류 성능과 확률 보정 품질을 함께 반환한다."""
     return {
         "recall_at_top_20pct": recall_at_top_fraction(y_true, probability),
         "pr_auc": float(average_precision_score(y_true, probability)),
@@ -57,7 +63,7 @@ def calculate_metrics(y_true: np.ndarray, probability: np.ndarray) -> dict[str, 
 
 
 def split_columns(features: pd.DataFrame) -> tuple[list[str], list[str]]:
-    """범주형은 One-Hot Encoding, 수치형은 그대로 사용할 열 목록을 정한다."""
+    """범주형 One-Hot Encoding 대상과 수치형 Feature 목록을 분리한다."""
     categorical = [
         column
         for column in features.columns
@@ -73,15 +79,17 @@ def main() -> None:
     # 1. 데이터 로드 및 누수·복합키 중복 검증
     data = pd.read_csv(DATA_PATH)
     forbidden = [
-        column for column in data.columns
+        column
+        for column in data.columns
         if any(term in column.lower() for term in ["final_result", "unregistration", "withdraw_week"])
     ]
     if forbidden:
         raise ValueError(f"누수 가능 변수가 포함되어 있습니다: {forbidden}")
-    if data.duplicated(["code_module", "code_presentation", ID_COL, "prediction_week"]).any():
-        raise ValueError("학생·과목·운영회차·주차 복합키 중복이 있습니다.")
+    key_columns = ["code_module", "code_presentation", ID_COL, "prediction_week"]
+    if data.duplicated(key_columns).any():
+        raise ValueError("학생·과목·운영회차·예측주차 복합키 중복이 있습니다.")
 
-    # 2. Target·그룹·Feature 분리: id_student는 분할에만 사용하고 모델 입력에서는 제외
+    # 2. Target·그룹·모델 입력을 분리한다. id_student는 GroupKFold에만 사용한다.
     target = data[TARGET_COL].astype(int).to_numpy()
     groups = data[ID_COL].to_numpy()
     features = data.drop(columns=[ID_COL, TARGET_COL]).copy()
@@ -90,13 +98,13 @@ def main() -> None:
         features[column] = features[column].fillna("미상").astype(str)
     features[numeric] = features[numeric].replace([np.inf, -np.inf], np.nan)
 
-    # 3. Train/Test 분할: 동일 학생의 여러 주차 행이 서로 다른 Fold로 섞이지 않게 처리
+    # 3. 동일 학생의 모든 주차 행을 같은 Fold에 배정한다.
     splitter = GroupKFold(n_splits=N_SPLITS)
     probabilities = np.zeros(len(data), dtype=float)
     fold_rows: list[dict[str, float | int]] = []
 
     for fold, (train_index, test_index) in enumerate(splitter.split(features, target, groups), start=1):
-        # 4-1. 전처리: One-Hot 인코더는 학습 Fold에만 맞춰 검증 Fold 정보를 미리 보지 않는다.
+        # 4-1. One-Hot Encoder는 학습 Fold에만 적합해 검증 Fold 정보 누수를 막는다.
         preprocessor = ColumnTransformer(
             [
                 ("categorical", OneHotEncoder(handle_unknown="ignore"), categorical),
@@ -108,28 +116,24 @@ def main() -> None:
         x_test = preprocessor.transform(features.iloc[test_index])
         y_train = target[train_index]
         y_test = target[test_index]
-        # 4-2. 이탈(1) 비율이 낮으므로 학습 Fold의 클래스 비율로 양성 가중치를 계산한다.
-        scale_pos_weight = (len(y_train) - y_train.sum()) / y_train.sum()
 
-        # 4-3. 모델 생성 및 학습: 검증 Fold PR-AUC를 기준으로 조기 종료한다.
-        model = XGBClassifier(
-            objective="binary:logistic",
-            eval_metric="aucpr",
-            n_estimators=500,
-            learning_rate=0.05,
-            max_depth=6,
-            min_child_weight=5,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            reg_lambda=5.0,
-            scale_pos_weight=float(scale_pos_weight),
-            tree_method="hist",
-            early_stopping_rounds=40,
+        # 4-2. 불균형 이탈 클래스를 고려한 랜덤포레스트를 학습한다.
+        model = RandomForestClassifier(
+            n_estimators=300,
+            criterion="entropy",
+            max_depth=18,
+            min_samples_split=20,
+            min_samples_leaf=10,
+            max_features=0.7,
+            bootstrap=True,
+            max_samples=0.8,
+            class_weight="balanced_subsample",
             random_state=42,
             n_jobs=-1,
         )
-        model.fit(x_train, y_train, eval_set=[(x_test, y_test)], verbose=False)
-        # 4-4. 검증 Fold의 다음 주 이탈확률을 예측해 OOF 배열의 원래 행 위치에 저장한다.
+        model.fit(x_train, y_train)
+
+        # 4-3. 현재 검증 Fold의 확률을 전체 OOF 배열의 원래 행 위치에 저장한다.
         fold_probability = model.predict_proba(x_test)[:, 1]
         probabilities[test_index] = fold_probability
 
@@ -138,17 +142,19 @@ def main() -> None:
             "train_rows": len(train_index),
             "test_rows": len(test_index),
             "test_target_rate": float(y_test.mean()),
-            "best_iteration": int(model.best_iteration),
         }
         row.update(calculate_metrics(y_test, fold_probability))
         fold_rows.append(row)
-        print(f"Fold {fold} 완료: PR-AUC={row['pr_auc']:.4f}, Recall@Top-20%={row['recall_at_top_20pct']:.4f}")
+        print(
+            f"Fold {fold} 완료: PR-AUC={row['pr_auc']:.4f}, "
+            f"Recall@Top-20%={row['recall_at_top_20pct']:.4f}"
+        )
 
-    # 5. 모든 Fold의 OOF 확률로 최종 평가지표를 계산하고 재현 가능한 결과 파일을 저장한다.
+    # 5. 모든 Fold의 OOF 확률을 합쳐 통합 성능을 계산하고 결과 파일을 저장한다.
     oof = data[["code_module", "code_presentation", ID_COL, "prediction_week", TARGET_COL]].copy()
-    oof["xgboost_oof_probability"] = probabilities
-    overall = {
-        "model": "XGBoost (확장 Feature + 세부 VLE Feature)",
+    oof["randomforest_oof_probability"] = probabilities
+    overall: dict[str, str | float | int] = {
+        "model": "RandomForest (확장 Feature + 세부 VLE Feature)",
         "rows": len(data),
         "target_count": int(target.sum()),
         "target_rate": float(target.mean()),
@@ -158,15 +164,15 @@ def main() -> None:
     overall.update(calculate_metrics(target, probabilities))
 
     pd.DataFrame([overall]).to_csv(
-        OUTPUT_DIR / "xgboost_weekly_next_week_metrics.csv", index=False, encoding="utf-8-sig"
+        OUTPUT_DIR / "randomforest_weekly_next_week_metrics.csv", index=False, encoding="utf-8-sig"
     )
     pd.DataFrame(fold_rows).to_csv(
-        OUTPUT_DIR / "xgboost_weekly_next_week_fold_metrics.csv", index=False, encoding="utf-8-sig"
+        OUTPUT_DIR / "randomforest_weekly_next_week_fold_metrics.csv", index=False, encoding="utf-8-sig"
     )
     oof.to_csv(
-        OUTPUT_DIR / "xgboost_weekly_next_week_oof_predictions.csv", index=False, encoding="utf-8-sig"
+        OUTPUT_DIR / "randomforest_weekly_next_week_oof_predictions.csv", index=False, encoding="utf-8-sig"
     )
-    print("\n=== XGBoost 교차검증 완료 ===")
+    print("\n=== 랜덤포레스트 교차검증 완료 ===")
     print(pd.DataFrame([overall]).to_string(index=False))
 
 

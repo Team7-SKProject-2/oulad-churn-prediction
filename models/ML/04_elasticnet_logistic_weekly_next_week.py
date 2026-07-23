@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 import time
 import warnings
 from dataclasses import asdict, dataclass
@@ -18,7 +19,11 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
 
-from common_weekly_metrics import (
+MODELS_DIR = Path(__file__).resolve().parents[1]
+if str(MODELS_DIR) not in sys.path:
+    sys.path.insert(0, str(MODELS_DIR))
+
+from common_weekly_metrics import (  # noqa: E402
     ID_COL,
     N_SPLITS,
     RANDOM_STATE,
@@ -34,7 +39,7 @@ from common_weekly_metrics import (
 
 
 MODEL_NAME = "ElasticNet Logistic Regression"
-DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent / "demo_1"
+DEFAULT_OUTPUT_DIR = Path(__file__).resolve().parent
 
 
 @dataclass(frozen=True)

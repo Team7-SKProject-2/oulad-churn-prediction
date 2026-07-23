@@ -21,10 +21,11 @@ from sklearn.metrics import average_precision_score
 from torch import nn
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-MODELS_DIR = PROJECT_ROOT / "models"
-OUTPUT_DIR = MODELS_DIR / "demo_1"
-GRU_SCRIPT = MODELS_DIR / "06_gru_weekly_next_week.py"
+DL_DIR = Path(__file__).resolve().parent
+MODELS_DIR = DL_DIR.parent
+PROJECT_ROOT = MODELS_DIR.parent
+OUTPUT_DIR = DL_DIR
+GRU_SCRIPT = DL_DIR / "06_gru_weekly_next_week.py"
 
 if str(MODELS_DIR) not in sys.path:
     sys.path.insert(0, str(MODELS_DIR))

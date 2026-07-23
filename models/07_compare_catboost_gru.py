@@ -12,7 +12,8 @@ from sklearn.metrics import average_precision_score, brier_score_loss
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-MODEL_DIR = PROJECT_ROOT / "models" / "demo_1"
+ML_DIR = PROJECT_ROOT / "models" / "ML"
+DL_DIR = PROJECT_ROOT / "models" / "DL"
 FIGURE_DIR = PROJECT_ROOT / "reports" / "figures" / "demo1_gru"
 
 TARGET = "target_next_week_withdrawn"
@@ -82,8 +83,8 @@ def model_metrics(
 
 
 def load_oof() -> pd.DataFrame:
-    catboost_path = MODEL_DIR / "catboost_weekly_next_week_oof_predictions.csv"
-    gru_path = MODEL_DIR / "gru_weekly_next_week_oof_predictions.csv"
+    catboost_path = ML_DIR / "catboost_weekly_next_week_oof_predictions.csv"
+    gru_path = DL_DIR / "gru_weekly_next_week_oof_predictions.csv"
     for path in (catboost_path, gru_path):
         if not path.is_file():
             raise FileNotFoundError(f"OOF 파일이 없습니다: {path}")
@@ -183,7 +184,7 @@ def main() -> None:
     )
     metrics = pd.DataFrame([catboost_metrics, gru_metrics])
     metrics.to_csv(
-        MODEL_DIR / "catboost_gru_comparison_metrics.csv",
+        DL_DIR / "catboost_gru_comparison_metrics.csv",
         index=False,
         encoding="utf-8-sig",
     )
@@ -208,7 +209,7 @@ def main() -> None:
         }
     )
     overlap.to_csv(
-        MODEL_DIR / "catboost_gru_top20_overlap.csv",
+        DL_DIR / "catboost_gru_top20_overlap.csv",
         index=False,
         encoding="utf-8-sig",
     )
@@ -229,7 +230,7 @@ def main() -> None:
         blend_rows.append(row)
     blend = pd.DataFrame(blend_rows)
     blend.to_csv(
-        MODEL_DIR / "catboost_gru_rank_blend_diagnostic.csv",
+        DL_DIR / "catboost_gru_rank_blend_diagnostic.csv",
         index=False,
         encoding="utf-8-sig",
     )

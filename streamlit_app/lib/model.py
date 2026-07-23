@@ -1,10 +1,10 @@
 """이탈 예측 모델 연동 인터페이스.
 
-모델: CatBoost, `models/artifacts/catboost.joblib`에 joblib으로 저장된 것을 로드한다.
+모델: CatBoost, `artifacts/early_catboost.joblib`에 joblib으로 저장된 것을 로드한다.
 모델 객체는 `.predict_proba(X)` 를 지원해야 하고, X는 model_snapshot_week_*.csv의
 컬럼 중 ID_COLUMNS를 제외한 나머지를 그대로 받는다고 가정한다 (원본 dtype 그대로 전달 —
 범주형 처리는 CatBoost가 학습 시점의 cat_features 정보로 내부에서 알아서 한다).
-models/artifacts/catboost.joblib이 없거나 catboost 패키지가 설치되어 있지 않으면
+artifacts/early_catboost.joblib이 없거나 catboost 패키지가 설치되어 있지 않으면
 predict_risk()는 placeholder_score()로 동작한다. 화면에는 "임시 규칙 기반 점수(모델 대기 중)"
 배지를 노출해서 실제 모델 점수와 혼동되지 않게 한다.
 
@@ -37,7 +37,7 @@ from .data import PROJECT_ROOT
 
 # data.py가 data/interim을 기준으로 이미 찾아둔 프로젝트 루트를 그대로 사용한다.
 # (streamlit_app 폴더 기준이 아니라 실제 저장소 루트의 models/ 폴더를 가리켜야 하므로)
-MODEL_PATH = PROJECT_ROOT / "models" / "artifacts" / "early_catboost.joblib"
+MODEL_PATH = PROJECT_ROOT / "artifacts" / "early_catboost.joblib"
 
 # 스냅샷 CSV에서 식별자/타깃 컬럼 (모델 입력에서 제외)
 ID_COLUMNS = ["code_module", "code_presentation", "id_student", "cutoff_week", "target"]
@@ -94,7 +94,7 @@ def load_model():
         obj = joblib.load(MODEL_PATH)
     except ModuleNotFoundError:
         st.warning(
-            "models/artifacts/catboost.joblib을 찾았지만 `catboost` 패키지가 설치되어 있지 않아 "
+            "artifacts/early_catboost.joblib을 찾았지만 `catboost` 패키지가 설치되어 있지 않아 "
             "로드하지 못했습니다. `pip install catboost` 후 앱을 재시작하세요. "
             "그 전까지는 임시 규칙 기반 점수로 표시됩니다."
         )
@@ -106,7 +106,7 @@ def load_model():
         obj = joblib.load(MODEL_PATH)
     except ModuleNotFoundError:
         st.warning(
-            "models/artifacts/catboost.joblib을 찾았지만 `catboost` 패키지가 설치되어 있지 않아 "
+            "artifacts/early_catboost.joblib을 찾았지만 `catboost` 패키지가 설치되어 있지 않아 "
             "로드하지 못했습니다. `pip install catboost` 후 앱을 재시작하세요. "
             "그 전까지는 임시 규칙 기반 점수로 표시됩니다."
         )
@@ -120,14 +120,14 @@ def load_model():
             if hasattr(v, "predict_proba"):
                 return v
         st.warning(
-            "models/artifacts/catboost.joblib이 dict로 저장되어 있는데, 그 안에서 "
+            "artifacts/early_catboost.joblib이 dict로 저장되어 있는데, 그 안에서 "
             f"predict_proba를 가진 모델을 못 찾았습니다. 실제 키: {list(obj.keys())} — "
             "이 키 이름을 알려주시면 코드에 반영해드릴게요. 그 전까지는 임시 규칙 기반 점수로 표시됩니다."
         )
         return None
 
     st.warning(
-        f"models/artifacts/catboost.joblib을 로드했지만 예상한 모델 형태가 아닙니다 (타입: {type(obj)}). "
+        f"artifacts/early_catboost.joblib을 로드했지만 예상한 모델 형태가 아닙니다 (타입: {type(obj)}). "
         "임시 규칙 기반 점수로 표시됩니다."
     )
     return None

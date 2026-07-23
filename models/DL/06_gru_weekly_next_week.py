@@ -23,8 +23,9 @@ from torch import nn
 from torch.utils.data import DataLoader, Dataset
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-MODELS_DIR = PROJECT_ROOT / "models"
+DL_DIR = Path(__file__).resolve().parent
+MODELS_DIR = DL_DIR.parent
+PROJECT_ROOT = MODELS_DIR.parent
 if str(MODELS_DIR) not in sys.path:
     sys.path.insert(0, str(MODELS_DIR))
 
@@ -47,11 +48,11 @@ except ModuleNotFoundError:
 DEFAULT_DATA_PATH = (
     PROJECT_ROOT
     / "models"
-    / "demo_1"
+    / "ML"
     / "used_data"
     / "weekly_next_week_with_vle_enhanced.csv"
 )
-OUTPUT_DIR = PROJECT_ROOT / "models" / "demo_1"
+OUTPUT_DIR = DL_DIR
 
 TARGET_COL = "target_next_week_withdrawn"
 ID_COL = "id_student"

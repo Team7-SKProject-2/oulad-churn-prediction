@@ -147,9 +147,9 @@ CatBoost는 Precision, F1, PR-AUC, ROC-AUC의 균형이 가장 좋았다. Elasti
 
 | 항목 | 값 |
 |---|---|
-| 실제 모델 | `models/artifacts/catboost.joblib` |
-| Early 패키지 | `models/artifacts/early_catboost.joblib` |
-| 운영 설정 | `models/artifacts/early_service_config.json` |
+| 실제 모델 | `artifacts/catboost.joblib` |
+| Early 패키지 | `artifacts/early_catboost.joblib` |
+| 운영 설정 | `artifacts/early_service_config.json` |
 | 모델 | Early CatBoost |
 | 학습 범위 | 전체 사용 가능 주차 |
 | 서비스 범위 | 1~10주차 |
@@ -163,8 +163,8 @@ CatBoost는 Precision, F1, PR-AUC, ROC-AUC의 균형이 가장 좋았다. Elasti
 
 ```bash
 python -m pip install -r requirements.txt
-python models/02_catboost_weekly_next_week.py
-python models/08_train_final_catboost_joblib.py
+python models/ML/02_catboost_weekly_next_week.py
+python models/ML/08_train_final_catboost_joblib.py
 python -m unittest discover -s tests -v
 ```
 
@@ -172,21 +172,21 @@ python -m unittest discover -s tests -v
 
 주요 분석 파일:
 
-- `models/01_xgboost_weekly_next_week.py/.ipynb`
-- `models/02_catboost_weekly_next_week.py/.ipynb`
-- `models/03_dummy_weekly_next_week.py/.ipynb`
-- `models/04_elasticnet_logistic_weekly_next_week.py/.ipynb`
-- `models/05_randomforest_weekly_next_week.py/.ipynb`
-- `models/06_gru_weekly_next_week.py`
-- `models/09_tcn_weekly_next_week.py`
+- `models/ML/01_xgboost_weekly_next_week.py/.ipynb`
+- `models/ML/02_catboost_weekly_next_week.py/.ipynb`
+- `models/ML/03_dummy_weekly_next_week.py/.ipynb`
+- `models/ML/04_elasticnet_logistic_weekly_next_week.py/.ipynb`
+- `models/ML/05_randomforest_weekly_next_week.py/.ipynb`
+- `models/DL/06_gru_weekly_next_week.py`
+- `models/DL/09_tcn_weekly_next_week.py`
 - `models/feature_importance/catboost_feature_importance.py/.ipynb`
 
 결과 artifact:
 
 - `artifacts/metrics.csv`
 - `artifacts/model_metadata.json` — 최종 모델 ZIP 단계에서 확정
-- `models/artifacts/early_service_config.json`
-- `models/demo_1/*_metrics.csv`
+- `artifacts/early_service_config.json`
+- `models/ML/*_metrics.csv`, `models/DL/*_metrics.csv`
 
 ## 13. 최종 선정 근거
 

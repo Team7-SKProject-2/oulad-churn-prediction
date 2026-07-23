@@ -41,32 +41,27 @@ oulad-churn-prediction/
 ├── docs/                              # 프로젝트 문서 및 설명 자료
 │
 ├── models/                            # 모델 학습·평가·비교 코드
-│   ├── artifacts/                     # 모델별 joblib·프로필 등 모델 산출물
-│   ├── demo_1/                        # 기존 실험 및 비교 결과
+│   ├── ML/                            # 머신러닝 코드와 실험 결과
+│   │   ├── 01_xgboost_weekly_next_week.py/.ipynb
+│   │   ├── 02_catboost_weekly_next_week.py/.ipynb
+│   │   ├── 03_dummy_weekly_next_week.py/.ipynb
+│   │   ├── 04_elasticnet_logistic_weekly_next_week.py/.ipynb
+│   │   ├── 05_randomforest_weekly_next_week.py/.ipynb
+│   │   ├── 08_train_final_catboost_joblib.py
+│   │   ├── early_train_final_catboost_joblib.py
+│   │   ├── early_train_final_xgboost_joblib.py
+│   │   ├── early_train_final_randomforest_joblib.py
+│   │   └── early_train_final_elasticnet_joblib.py
+│   ├── DL/                            # 딥러닝 코드와 ML-DL 비교 결과
+│   │   ├── 06_gru_weekly_next_week.py
+│   │   └── 09_tcn_weekly_next_week.py
 │   ├── feature_importance/            # 변수 중요도 분석
 │   ├── feature_set_comparison/        # 피처 구성별 성능 비교
-│   │
 │   ├── common_weekly_metrics.py       # 주차별 데이터 준비·공통 평가지표 기능
 │   ├── early_weekly_common.py         # 1~10주차 Early 모델 공통 기능
 │   ├── early_final_artifact_common.py # 최종 모델 저장·불러오기 공통 기능
-│   ├── early_train_final_catboost_joblib.py
-│   │                                  # ★ 실제 사용할 Early CatBoost 재학습 스크립트
-│   │
-│   ├── early_train_final_xgboost_joblib.py
-│   ├── early_train_final_randomforest_joblib.py
-│   ├── early_train_final_elasticnet_joblib.py
-│   │                                  # Early CatBoost와 비교한 대체 모델
-│   │
-│   ├── 01_xgboost_weekly_next_week.py/.ipynb
-│   ├── 02_catboost_weekly_next_week.py/.ipynb
-│   ├── 03_dummy_weekly_next_week.py/.ipynb
-│   ├── 04_elasticnet_logistic_weekly_next_week.py/.ipynb
-│   ├── 05_randomforest_weekly_next_week.py/.ipynb
-│   ├── 06_gru_weekly_next_week.py
 │   ├── 07_compare_catboost_gru.py
 │   ├── 08_catboost_feature_ablation.py
-│   ├── 08_train_final_catboost_joblib.py
-│   ├── 09_tcn_weekly_next_week.py
 │   ├── 10_compare_all_models.py
 │   └── 11_build_streamlit_profiles.py # 기존 실험·비교·프로필 생성 코드
 │
@@ -198,11 +193,11 @@ Streamlit은 `catboost.joblib`의 모델·124개 Feature 순서와
 
 ## 주요 산출물
 
-- 최종 CatBoost: `models/artifacts/catboost.joblib`
-- Early 패키지: `models/artifacts/early_catboost.joblib`
-- Early 운영 설정: `models/artifacts/early_service_config.json`
-- 최종 모델 생성: `models/08_train_final_catboost_joblib.py`
-- Early 모델 생성: `models/early_train_final_catboost_joblib.py`
+- 최종 CatBoost: `artifacts/catboost.joblib`
+- Early 패키지: `artifacts/early_catboost.joblib`
+- Early 운영 설정: `artifacts/early_service_config.json`
+- 최종 모델 생성: `models/ML/08_train_final_catboost_joblib.py`
+- Early 모델 생성: `models/ML/early_train_final_catboost_joblib.py`
 - Early OOF 평가: `src/early_catboost_threshold_report.py`
 - EDA 보고서: `reports/eda_report.md`
 - 모델 비교 보고서: `reports/final_model_comparison_report.md`
@@ -228,6 +223,40 @@ python -m unittest discover -s tests -v
 - Early 성능은 완전히 독립된 외부 테스트 성능으로 표현하지 않습니다.
 - 이탈률이 매우 낮은 불균형 문제이므로 ROC-AUC만 보지 않고 PR-AUC,
   Precision, Recall을 함께 해석합니다.
+
+## 비교: 예측 기준 시점별 추가 실험
+
+> [!NOTE]
+> 이 보조 실험은 기존 **1~10주차 다음 주 이탈 예측 CatBoost 서비스**를
+> 대체하지 않는다. 운영 시점에 따라 관측할 수 있는 정보와 Target 기간이
+> 어떻게 달라지는지 확인하기 위한 별도의 실험이다.
+
+### 시점별 예측 질문
+
+- **Week 1:** 개강일 현재 수강 중인 학생의 향후 4주 이탈
+- **Week 5:** 5주차 시작 시점 현재 수강 중인 학생의 종강 전 이탈
+- **Week 9:** 9주차 시작 시점 현재 수강 중인 학생의 종강 전 이탈
+
+![시점이 다른 세 가지 예측 질문](reports/figures/prediction_point_target_timeline.png)
+
+| 실험 | 예측 시점 | Target이 1인 기간 | 관측 데이터 | Feature 수 |
+|---|---|---|---|---:|
+| `week1_next4` | 개강일 (`day 0`) | `day 0~27` 이탈 | 개강 전 정적·수강 정보 | 8개 |
+| `week5_course_end` | 5주차 시작 (`day 28`) | `day 28` 이후 종강 전 이탈 | `day 0~27` 행동 | 14개 |
+| `week9_course_end` | 9주차 시작 (`day 56`) | `day 56` 이후 종강 전 이탈 | `day 0~55` 행동 | 14개 |
+
+> [!IMPORTANT]
+> 세 질문은 모집단과 Target 기간이 서로 다르다. 따라서 모델, threshold,
+> 예측확률과 성능을 서로 바꾸어 사용하거나 절대 점수만으로 직접 순위를
+> 매기지 않는다.
+
+### Validation PR 곡선
+
+![예측 기준 시점별 Validation PR 곡선](reports/figures/prediction_point_validation_pr_curves_zoom.png)
+
+가독성을 위해 각 시점의 선택 모델, 비교 모델과 양성률 기준선만 표시했다.
+패널별 y축 확대 범위가 다르므로 곡선의 높이를 시점 간 절대 성능 차이로
+직접 해석하지 않는다.
 
 ## 비교: 예측 기준 시점별 추가 실험
 

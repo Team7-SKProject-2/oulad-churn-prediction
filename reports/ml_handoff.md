@@ -10,9 +10,9 @@
 
 ## 바로 사용할 파일
 
-- 모델: `models/artifacts/catboost.joblib`
-- 124개 Feature 코호트 프로필: `models/artifacts/catboost_cohort_profiles.csv`
-- Early 설정: `models/artifacts/early_service_config.json`
+- 모델: `artifacts/catboost.joblib`
+- 124개 Feature 코호트 프로필: `artifacts/catboost_cohort_profiles.csv`
+- Early 설정: `artifacts/early_service_config.json`
 - 공통 추론: `streamlit_app/lib/model.py`
 - Early 평가: `outputs/threshold_analysis/early_catboot/`
 
